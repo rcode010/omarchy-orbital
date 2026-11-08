@@ -33,6 +33,7 @@ Column {
     }
     changes.auto_start_break = draft.auto_start_break === true
     changes.auto_start_focus = draft.auto_start_focus === true
+    changes.notifications = draft.notifications === true
     service.submit("settings.update", { settings: changes })
   }
 
@@ -109,7 +110,8 @@ Column {
   Repeater {
     model: [
       { key: "auto_start_break", label: "Start breaks automatically" },
-      { key: "auto_start_focus", label: "Start next focus automatically" }
+      { key: "auto_start_focus", label: "Start next focus automatically" },
+      { key: "notifications", label: "Completion notifications" }
     ]
 
     Text {

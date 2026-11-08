@@ -126,6 +126,12 @@ QtObject {
     submit("reports.period", request)
   }
 
+  function showNotification(title, message) {
+    if (!settings.notifications || notification.running) return
+    notification.command = ["notify-send", "--app-name=Orbital", title, message]
+    notification.running = true
+  }
+
   function handleResult(exitCode, output) {
     busy = false
     var parsed = null
@@ -148,6 +154,10 @@ QtObject {
         }
       } else if (activeRequest.command.indexOf("timer.") === 0) {
         applyTimer(parsed.result.timer || parsed.result)
+        if (activeRequest.command === "timer.complete" && parsed.result.completed)
+          showNotification("Focus complete", "Time for a " + breakKind + " break")
+        if (activeRequest.command === "timer.complete_break" && parsed.result.completed)
+          showNotification("Break complete", phase === "running" ? "Next focus started" : "Ready for focus")
         if (parsed.result.saved) {
           refreshReports()
           loadHistory(true)
@@ -193,6 +203,8 @@ QtObject {
       root.handleResult(exitCode, helperOutput.text)
     }
   }
+
+  property Process notification: Process {}
 
   property Timer displayTick: Timer {
     interval: 1000
