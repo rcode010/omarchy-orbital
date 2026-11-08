@@ -264,6 +264,33 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertIsNone(second_page["next_cursor"])
         self.assertEqual(len(self.call("sessions.list", activity_id=first)["sessions"]), 2)
 
+    def test_period_totals_and_trends_reconcile(self):
+        activity_id = self.call("activities.create", name="Study")["activity_id"]
+        self.call("sessions.add_manual", activity_id=activity_id,
+                  started_at="2026-02-28T23:30:00+00:00", active_seconds=3600)
+        day = self.call("reports.period", period="day", anchor="2026-03-01", zone="UTC")
+        week = self.call("reports.period", period="week", anchor="2026-03-01", zone="UTC")
+        month = self.call("reports.period", period="month", anchor="2026-03-01", zone="UTC")
+        year = self.call("reports.period", period="year", anchor="2026-03-01", zone="UTC")
+        self.assertEqual(day["total_ms"], 1800000)
+        self.assertEqual(week["start_day"], "2026-02-23")
+        self.assertEqual(week["total_ms"], 3600000)
+        self.assertEqual(month["total_ms"], 1800000)
+        self.assertEqual(year["total_ms"], 3600000)
+        for report in (day, week, month, year):
+            self.assertEqual(sum(point["active_ms"] for point in report["trend"]), report["total_ms"])
+            self.assertEqual(sum(item["active_ms"] for item in report["activities"]), report["total_ms"])
+
+    def test_leap_day_period_and_dst_hour_count(self):
+        _, start, end, _, _ = orbital_db.period_dates(
+            {"period": "month", "anchor": "2024-02-29"}, orbital_db.ZoneInfo("UTC")
+        )
+        self.assertEqual((end - start).days, 29)
+        spring = self.call("reports.period", period="day", anchor="2026-03-08", zone="America/New_York")
+        autumn = self.call("reports.period", period="day", anchor="2026-11-01", zone="America/New_York")
+        self.assertEqual(len(spring["trend"]), 23)
+        self.assertEqual(len(autumn["trend"]), 25)
+
 
 if __name__ == "__main__":
     unittest.main()

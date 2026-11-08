@@ -436,8 +436,7 @@ def allocated_ms(started_at, ended_at, active_ms, start, end):
     return active_ms * right_us // wall_us - active_ms * left_us // wall_us
 
 
-def day_summary(db, request):
-    day, start, end = day_bounds(request)
+def range_segments(db, start, end):
     start_text = start.isoformat(timespec="milliseconds")
     end_text = end.isoformat(timespec="milliseconds")
     rows = db.execute(
@@ -455,9 +454,14 @@ def day_summary(db, request):
         "AND NOT EXISTS (SELECT 1 FROM work_segments w WHERE w.session_id = s.id)",
         (end_text, start_text),
     ).fetchall()
+    return (*rows, *legacy)
+
+
+def day_summary(db, request):
+    day, start, end = day_bounds(request)
     totals = {}
     sessions = set()
-    for row in (*rows, *legacy):
+    for row in range_segments(db, start, end):
         portion = allocated_ms(row["started_at"], row["ended_at"], row["active_ms"], start, end)
         if portion <= 0:
             continue
@@ -470,6 +474,102 @@ def day_summary(db, request):
     activities = sorted(totals.values(), key=lambda item: (-item["active_ms"], item["name"]))
     return {"day": day, "total_ms": sum(item["active_ms"] for item in activities),
             "session_count": len(sessions), "activities": activities}
+
+
+def period_dates(request, zone):
+    period = request.get("period", "today")
+    if period not in ("today", "day", "week", "month", "year"):
+        raise RequestError("invalid_period", "Unknown reporting period")
+    raw_anchor = request.get("anchor")
+    if period == "today" or raw_anchor is None:
+        anchor = datetime.now(zone).date()
+    else:
+        if not isinstance(raw_anchor, str) or len(raw_anchor) != 10:
+            raise RequestError("invalid_day", "Anchor must be a valid ISO date")
+        try:
+            anchor = date.fromisoformat(raw_anchor)
+        except ValueError:
+            raise RequestError("invalid_day", "Anchor must be a valid ISO date") from None
+    if not 2 <= anchor.year <= 9998:
+        raise RequestError("invalid_day", "Anchor year is out of range")
+    if period in ("today", "day"):
+        start = anchor
+        end = start + timedelta(days=1)
+        previous = start - timedelta(days=1)
+        following = end
+    elif period == "week":
+        start = anchor - timedelta(days=anchor.weekday())
+        end = start + timedelta(days=7)
+        previous = start - timedelta(days=7)
+        following = end
+    elif period == "month":
+        start = anchor.replace(day=1)
+        end = date(start.year + (start.month == 12), start.month % 12 + 1, 1)
+        previous = date(start.year - (start.month == 1), (start.month - 2) % 12 + 1, 1)
+        following = end
+    else:
+        start = date(anchor.year, 1, 1)
+        end = date(anchor.year + 1, 1, 1)
+        previous = date(anchor.year - 1, 1, 1)
+        following = end
+    return period, start, end, previous, following
+
+
+def period_summary(db, request):
+    zone = local_zone(request)
+    period, first_day, end_day, previous, following = period_dates(request, zone)
+    start = datetime.combine(first_day, datetime.min.time(), zone).astimezone(timezone.utc)
+    end = datetime.combine(end_day, datetime.min.time(), zone).astimezone(timezone.utc)
+    totals = {}
+    sessions = set()
+    daily = {}
+    segments = range_segments(db, start, end)
+    for row in segments:
+        current = max(first_day, datetime.fromisoformat(row["started_at"]).astimezone(zone).date())
+        while current < end_day:
+            day_start = datetime.combine(current, datetime.min.time(), zone).astimezone(timezone.utc)
+            day_end = datetime.combine(current + timedelta(days=1), datetime.min.time(), zone).astimezone(timezone.utc)
+            portion = allocated_ms(row["started_at"], row["ended_at"], row["active_ms"], day_start, day_end)
+            if portion > 0:
+                sessions.add(row["id"])
+                daily[current.isoformat()] = daily.get(current.isoformat(), 0) + portion
+                entry = totals.setdefault(row["activity_id"], {
+                    "activity_id": row["activity_id"], "name": row["name"],
+                    "icon": row["icon"], "color": row["color"], "active_ms": 0,
+                })
+                entry["active_ms"] += portion
+            if day_start >= datetime.fromisoformat(row["ended_at"]):
+                break
+            current += timedelta(days=1)
+    activities = sorted(totals.values(), key=lambda item: (-item["active_ms"], item["name"]))
+    if period == "year":
+        trend = []
+        for month in range(1, 13):
+            key = f"{first_day.year}-{month:02d}"
+            trend.append({"key": key, "label": date(first_day.year, month, 1).strftime("%b"),
+                          "active_ms": sum(value for day, value in daily.items() if day.startswith(key))})
+    elif period in ("today", "day"):
+        trend = []
+        point = start
+        while point < end:
+            next_point = min(point + timedelta(hours=1), end)
+            value = sum(allocated_ms(row["started_at"], row["ended_at"], row["active_ms"],
+                                     point, next_point) for row in segments)
+            trend.append({"key": point.isoformat(), "label": point.astimezone(zone).strftime("%H:%M"),
+                          "active_ms": value})
+            point = next_point
+    else:
+        trend = []
+        current = first_day
+        while current < end_day:
+            key = current.isoformat()
+            trend.append({"key": key, "label": current.strftime("%a %d") if period == "week" else str(current.day),
+                          "active_ms": daily.get(key, 0)})
+            current += timedelta(days=1)
+    return {"period": period, "start_day": first_day.isoformat(), "end_day_exclusive": end_day.isoformat(),
+            "previous_anchor": previous.isoformat(), "next_anchor": following.isoformat(),
+            "total_ms": sum(item["active_ms"] for item in activities),
+            "session_count": len(sessions), "activities": activities, "trend": trend}
 
 
 def recent_sessions(db, request):
@@ -641,6 +741,7 @@ COMMANDS = {
     "timer.discard": lambda db, request: timer_stop(db, request, False),
     "timer.complete": timer_complete,
     "reports.day": day_summary,
+    "reports.period": period_summary,
     "sessions.recent": recent_sessions,
     "sessions.list": list_sessions,
     "sessions.add_manual": add_manual,
