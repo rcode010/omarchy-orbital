@@ -57,7 +57,7 @@ class ActivityStorageTests(unittest.TestCase):
         activity_id = self.call("activities.create", name="Project")["activity_id"]
         self.assertEqual(self.call("activities.list")["selected_activity_id"], activity_id)
         with closing(orbital_db.connect(self.path)) as db:
-            self.assertEqual(db.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0], 3)
+            self.assertEqual(db.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0], 4)
 
     def test_finish_early_saves_active_time_once(self):
         self.call("activities.create", name="Study")
@@ -302,6 +302,63 @@ class ActivityStorageTests(unittest.TestCase):
         with self.assertRaises(orbital_db.RequestError):
             self.call("settings.update", settings={"focus_minutes": 0})
         self.assertEqual(self.call("settings.get")["settings"]["focus_minutes"], 40)
+
+    def test_manual_finish_never_starts_break(self):
+        self.call("activities.create", name="Study")
+        self.call("settings.update", settings={"auto_start_break": True})
+        clock = {"ns": 0}
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db.time, "monotonic_ns", side_effect=lambda: clock["ns"]
+        ):
+            self.call("timer.start", mode="focus", planned_seconds=1500)
+            clock["ns"] = 17 * 60 * 1_000_000_000
+            finished = self.call("timer.finish")
+        self.assertEqual(finished["timer"]["phase"], "idle")
+        self.assertEqual(finished["active_seconds"], 1020)
+
+    def test_break_cycle_excludes_break_time_and_respects_auto_start(self):
+        self.call("activities.create", name="Study")
+        self.call("settings.update", settings={"auto_start_break": True,
+                                               "auto_start_focus": True,
+                                               "short_break_minutes": 5})
+        clock = {"ns": 0}
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db.time, "monotonic_ns", side_effect=lambda: clock["ns"]
+        ):
+            self.call("timer.start", mode="focus", planned_seconds=60)
+            clock["ns"] += 60 * 1_000_000_000
+            work = self.call("timer.complete")
+            self.assertEqual(work["timer"]["phase"], "break_running")
+            clock["ns"] += 120 * 1_000_000_000
+            self.call("timer.pause")
+            clock["ns"] += 3600 * 1_000_000_000
+            self.call("timer.resume")
+            clock["ns"] += 180 * 1_000_000_000
+            next_focus = self.call("timer.complete_break")
+            self.assertEqual(next_focus["timer"]["phase"], "running")
+            clock["ns"] += 30 * 1_000_000_000
+            self.call("timer.finish")
+        with closing(orbital_db.connect(self.path)) as db:
+            saved = db.execute("SELECT active_seconds FROM sessions ORDER BY created_at").fetchall()
+            self.assertEqual(sorted(row[0] for row in saved), [30, 60])
+
+    def test_long_break_after_configured_number_of_focus_sessions(self):
+        self.call("activities.create", name="Study")
+        self.call("settings.update", settings={"long_break_every": 2})
+        clock = {"ns": 0}
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db.time, "monotonic_ns", side_effect=lambda: clock["ns"]
+        ):
+            self.call("timer.start", mode="focus", planned_seconds=60)
+            clock["ns"] += 60 * 1_000_000_000
+            first = self.call("timer.complete")
+            self.assertEqual(first["timer"]["break_kind"], "short")
+            self.call("timer.skip_break")
+            self.call("timer.start", mode="focus", planned_seconds=60)
+            clock["ns"] += 60 * 1_000_000_000
+            second = self.call("timer.complete")
+        self.assertEqual(second["timer"]["break_kind"], "long")
+        self.assertEqual(second["timer"]["planned_seconds"], 900)
 
 
 if __name__ == "__main__":
