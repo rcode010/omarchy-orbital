@@ -23,6 +23,37 @@ Panel {
     })
   }
 
+  function setPage(nextPage) {
+    page = nextPage
+    scroll.contentY = 0
+    if (!service) return
+    if (page === "history") service.loadHistory(true)
+    if (page === "insights") service.loadInsights()
+    if (page === "settings") service.loadBackups()
+  }
+
+  function perform(action) {
+    if (!service || service.busy) return
+    if (action === "Start")
+      service.submit("timer.start", { mode: service.mode, planned_seconds: service.plannedSeconds })
+    else if (action === "Pause" || action === "Pause Break") service.submit("timer.pause", {})
+    else if (action === "Resume" || action === "Resume Break") service.submit("timer.resume", {})
+    else if (action === "Discard") service.submit("timer.discard", {})
+    else if (action === "Start Break") service.submit("timer.start_break", {})
+    else if (action === "Skip Break") service.submit("timer.skip_break", {})
+    else service.submit("timer.finish", {})
+  }
+
+  function primaryAction() {
+    if (!service) return
+    if (service.phase === "idle") perform("Start")
+    else if (service.phase === "paused") perform("Resume")
+    else if (service.phase === "running") perform("Pause")
+    else if (service.phase === "break_ready") perform("Start Break")
+    else if (service.phase === "break_paused") perform("Resume Break")
+    else if (service.phase === "break_running") perform("Pause Break")
+  }
+
   KeyboardPanel {
     id: popup
     anchorItem: root.anchorItem
@@ -39,6 +70,19 @@ Panel {
       anchors.fill: parent
       focus: true
       Keys.onEscapePressed: root.close()
+      Keys.onPressed: function(event) {
+        if (event.modifiers === Qt.ControlModifier && event.key >= Qt.Key_1 && event.key <= Qt.Key_4) {
+          root.setPage(["home", "insights", "history", "settings"][event.key - Qt.Key_1])
+          event.accepted = true
+        } else if (event.modifiers === Qt.NoModifier && event.key === Qt.Key_Space) {
+          root.primaryAction()
+          event.accepted = true
+        } else if (event.modifiers === Qt.NoModifier && event.key === Qt.Key_F
+                   && root.service && (root.service.phase === "running" || root.service.phase === "paused")) {
+          root.perform("Finish")
+          event.accepted = true
+        }
+      }
 
       Flickable {
         id: scroll
@@ -79,13 +123,7 @@ Panel {
               MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  root.page = modelData.toLowerCase()
-                  scroll.contentY = 0
-                  if (root.page === "history" && root.service) root.service.loadHistory(true)
-                  if (root.page === "insights" && root.service) root.service.loadInsights()
-                  if (root.page === "settings" && root.service) root.service.loadBackups()
-                }
+                onClicked: root.setPage(modelData.toLowerCase())
               }
             }
           }
@@ -219,44 +257,17 @@ Panel {
                 ? ["Resume", root.service.mode === "focus" ? "Finish Early" : "Finish", "Discard"]
                 : ["Pause", root.service && root.service.mode === "focus" ? "Finish Early" : "Finish", "Discard"]
 
-            Rectangle {
+            Button {
               required property string modelData
-              width: label.implicitWidth + Style.space(20)
-              height: Style.space(38)
-              radius: Style.space(8)
-              color: modelData === "Discard" || modelData === "Skip Break"
-                ? "transparent" : Commons.Color.accent
-              border.color: root.foreground
-              border.width: modelData === "Discard" || modelData === "Skip Break" ? 1 : 0
-
-              Text {
-                id: label
-                anchors.centerIn: parent
-                text: modelData
-                color: modelData === "Discard" || modelData === "Skip Break"
-                  ? root.foreground : Commons.Color.background
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body
-                font.weight: Font.DemiBold
-              }
-
-              MouseArea {
-                anchors.fill: parent
-                enabled: root.service && !root.service.busy
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                  if (modelData === "Start")
-                    root.service.submit("timer.start", { mode: root.service.mode, planned_seconds: root.service.plannedSeconds })
-                  else if (modelData === "Pause") root.service.submit("timer.pause", {})
-                  else if (modelData === "Resume") root.service.submit("timer.resume", {})
-                  else if (modelData === "Discard") root.service.submit("timer.discard", {})
-                  else if (modelData === "Start Break") root.service.submit("timer.start_break", {})
-                  else if (modelData === "Pause Break") root.service.submit("timer.pause", {})
-                  else if (modelData === "Resume Break") root.service.submit("timer.resume", {})
-                  else if (modelData === "Skip Break") root.service.submit("timer.skip_break", {})
-                  else root.service.submit("timer.finish", {})
-                }
-              }
+              required property int index
+              text: modelData
+              active: index === 0
+              focusable: true
+              bordered: modelData === "Discard" || modelData === "Skip Break"
+              enabled: root.service && !root.service.busy
+              foreground: root.foreground
+              accent: Commons.Color.accent
+              onClicked: root.perform(modelData)
             }
           }
         }
@@ -278,14 +289,25 @@ Panel {
           model: root.service ? root.service.activities : []
 
           delegate: Rectangle {
+            id: activityRow
             required property var modelData
             width: ListView.view.width
             height: Style.space(42)
             radius: Style.space(9)
+            activeFocusOnTab: true
+            Keys.onReturnPressed: activate()
+            Keys.onSpacePressed: activate()
+
+            function activate() {
+              if (modelData.archived_at) root.beginEdit(modelData)
+              else if (root.service && root.service.phase === "idle")
+                root.service.submit("activities.select", { activity_id: modelData.id })
+            }
+
             color: modelData.id === root.service.selectedActivityId
               ? Commons.Color.accent : "transparent"
-            border.color: root.foreground
-            border.width: modelData.id === root.service.selectedActivityId ? 0 : 1
+            border.color: activeFocus ? Commons.Color.accent : root.foreground
+            border.width: activeFocus ? 2 : (modelData.id === root.service.selectedActivityId ? 0 : 1)
 
             Text {
               anchors.fill: parent
@@ -318,8 +340,8 @@ Panel {
               enabled: root.service && (modelData.archived_at || root.service.phase === "idle")
               cursorShape: Qt.PointingHandCursor
               onClicked: {
-                if (modelData.archived_at) root.beginEdit(modelData)
-                else root.service.submit("activities.select", { activity_id: modelData.id })
+                activityRow.forceActiveFocus()
+                activityRow.activate()
               }
             }
           }

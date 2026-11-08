@@ -51,7 +51,7 @@ The stored session rows include UTC start/end times and active seconds. New meas
 
 ## Current keyboard behavior
 
-Press Escape to close the panel. Tab reaches the activity name field, where Enter adds a new activity. Other controls currently use pointer input; complete keyboard support is planned before 1.0.
+Press Escape to close the panel. Ctrl+1, Ctrl+2, Ctrl+3, and Ctrl+4 open Home, Insights, History, and Settings. Space starts, pauses, or resumes the current focus, stopwatch, or break phase. F finishes the current work session. Tab reaches the native timer buttons, visible activity rows, and text fields; Enter or Space activates a focused timer button or activity row, and Enter adds a new activity from its name field. Other controls still need full tab/focus support before 1.0.
 
 ## Development status
 
