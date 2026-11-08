@@ -310,7 +310,7 @@ Column {
 
       Text {
         width: parent.width * 0.23
-        text: root.service.formatDuration(modelData.active_seconds * 1000)
+        text: root.service.formatSessionDuration(modelData.active_seconds)
         color: Commons.Color.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.body

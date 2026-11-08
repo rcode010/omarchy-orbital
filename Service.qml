@@ -73,6 +73,16 @@ QtObject {
     return seconds + "s"
   }
 
+  function formatSessionDuration(seconds) {
+    var hours = Math.floor(seconds / 3600)
+    var minutes = Math.floor((seconds % 3600) / 60)
+    var remainder = seconds % 60
+    var padded = remainder < 10 ? "0" + remainder : String(remainder)
+    if (hours > 0)
+      return hours + ":" + (minutes < 10 ? "0" + minutes : minutes) + ":" + padded
+    return minutes + ":" + padded
+  }
+
   function applyTimer(timer) {
     phase = timer.phase
     breakKind = timer.break_kind || ""
