@@ -69,6 +69,19 @@ class ActivityStorageTests(unittest.TestCase):
         with closing(orbital_db.connect(self.path)) as db:
             self.assertEqual(db.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0], 4)
 
+    def test_version_three_upgrade_preserves_history(self):
+        activity_id = self.call("activities.create", name="Project")["activity_id"]
+        self.call("sessions.add_manual", activity_id=activity_id,
+                  started_at="2025-01-01T10:00:00+00:00", active_seconds=1200)
+        with closing(orbital_db.connect(self.path)) as db:
+            with db:
+                db.execute("ALTER TABLE timer_state DROP COLUMN break_kind")
+                db.execute("DELETE FROM schema_migrations WHERE version = 4")
+        with closing(orbital_db.connect(self.path)) as db:
+            self.assertEqual(db.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0], 4)
+            self.assertIn("break_kind", [row[1] for row in db.execute("PRAGMA table_info(timer_state)")])
+        self.assertEqual(self.call("reports.day", day="2025-01-01", zone="UTC")["total_ms"], 1200000)
+
     def test_concurrent_activity_writes_preserve_all_rows(self):
         self.call("activities.create", name="Initial")
         with ThreadPoolExecutor(max_workers=6) as pool:
