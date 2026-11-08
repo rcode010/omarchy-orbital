@@ -33,6 +33,8 @@ When the Omarchy shell is running, install a local Git checkout with `omarchy pl
 
 No package installation, network service, account, or telemetry is required by Orbital.
 
+Orbital is licensed under the MIT License. See [LICENSE](LICENSE).
+
 ## Data and recovery
 
 Orbital stores `orbital.sqlite3` under `$XDG_DATA_HOME/io.github.rcode010.omarchy-orbital/`, or `~/.local/share/io.github.rcode010.omarchy-orbital/` when `XDG_DATA_HOME` is unset. The directory and database are restricted to the user. Normal plugin removal does not delete this directory.
