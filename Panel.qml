@@ -174,12 +174,16 @@ Panel {
           font.pixelSize: Style.font.body
         }
 
-        Repeater {
+        ListView {
+          width: content.width
+          height: Math.min(Style.space(210), count * Style.space(46))
+          clip: true
+          spacing: Style.space(4)
           model: root.service ? root.service.activities : []
 
-          Rectangle {
+          delegate: Rectangle {
             required property var modelData
-            width: content.width
+            width: ListView.view.width
             height: Style.space(42)
             radius: Style.space(9)
             color: modelData.id === root.service.selectedActivityId

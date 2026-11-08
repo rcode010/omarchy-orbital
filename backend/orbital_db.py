@@ -11,6 +11,7 @@ from pathlib import Path
 
 PLUGIN_ID = "io.github.rcode010.omarchy-orbital"
 MAX_REQUEST_BYTES = 16384
+MAX_ACTIVITIES = 500
 COLORS = {"blue", "cyan", "green", "amber", "orange", "purple", "pink", "red"}
 
 
@@ -116,6 +117,9 @@ def create_activity(db, request):
         raise RequestError("invalid_field", "Unknown activity color")
     activity_id = str(uuid.uuid4())
     with db:
+        count = db.execute("SELECT COUNT(*) FROM activities").fetchone()[0]
+        if count >= MAX_ACTIVITIES:
+            raise RequestError("limit_reached", "Orbital supports up to 500 activities")
         position = db.execute("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM activities").fetchone()[0]
         db.execute("INSERT INTO activities (id, name, icon, color, sort_order) VALUES (?, ?, ?, ?, ?)",
                    (activity_id, name, icon, color, position))

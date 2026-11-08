@@ -1,4 +1,5 @@
 import os
+import json
 import subprocess
 import sys
 import tempfile
@@ -146,6 +147,17 @@ class ActivityStorageTests(unittest.TestCase):
         with self.assertRaises(orbital_db.RequestError) as error:
             self.call("activities.list")
         self.assertEqual(error.exception.code, "unsafe_path")
+
+    def test_argument_array_protocol_creates_activity(self):
+        env = {**os.environ, "XDG_DATA_HOME": self.temp.name}
+        script = ROOT / "backend" / "orbital_db.py"
+        request = json.dumps({"command": "activities.create", "name": "Reading & writing $(safe)"})
+        result = subprocess.run([sys.executable, str(script), request], capture_output=True, env=env, check=True)
+        self.assertTrue(json.loads(result.stdout)["ok"])
+        listed = subprocess.run([sys.executable, str(script), '{"command":"activities.list"}'],
+                                capture_output=True, env=env, check=True)
+        self.assertEqual(json.loads(listed.stdout)["result"]["activities"][0]["name"],
+                         "Reading & writing $(safe)")
 
 
 if __name__ == "__main__":

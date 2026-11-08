@@ -13,6 +13,8 @@ This repository is under active development. The current build provides activity
 
 The plugin ID is `io.github.rcode010.omarchy-orbital`. Its service owns the timer and is shared by bar widgets on all monitors. The panel closes without stopping the service. The helper runs only for user actions and a checkpoint every 60 seconds while tracking; the display tick does not write to SQLite.
 
+Activity names are limited to 80 characters, and the current data protocol caps a library at 500 activities so UI responses remain bounded.
+
 ## Development checkout
 
 Validate the checkout with `omarchy plugin validate .` and run the backend tests with `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v`.
