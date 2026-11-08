@@ -48,8 +48,13 @@ def main():
                 timings.append((time.perf_counter() - started) * 1000)
             assert report["total_ms"] == sum(point["active_ms"] for point in report["trend"])
             assert report["selected_lifetime"]["session_count"] > 0
+            history_start = time.perf_counter()
+            history = orbital_db.list_sessions(db, {"limit": 20, "start_day": "2026-06-01",
+                                                    "end_day": "2026-06-30", "zone": "UTC"})
+            history_ms = (time.perf_counter() - history_start) * 1000
+            assert len(history["sessions"]) == 20
             print(f"sessions=50000 cold_ms={timings[0]:.1f} warm_ms={timings[1]:.1f} "
-                  f"total_hours={report['total_ms'] / 3600000:.1f}")
+                  f"history_page_ms={history_ms:.1f} total_hours={report['total_ms'] / 3600000:.1f}")
 
 
 if __name__ == "__main__":
