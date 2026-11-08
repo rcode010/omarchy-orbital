@@ -22,6 +22,10 @@ QtObject {
   property var insightsReport: null
   property string insightsPeriod: "today"
   property string insightsAnchor: ""
+  property var settings: ({ focus_minutes: 25, short_break_minutes: 5,
+                            long_break_minutes: 15, long_break_every: 4,
+                            auto_start_break: false, auto_start_focus: false,
+                            notifications: false })
   property bool showArchived: false
   property string selectedActivityId: ""
   property string errorMessage: ""
@@ -154,6 +158,9 @@ QtObject {
         historyCursor = parsed.result.next_cursor
       } else if (activeRequest.command === "reports.period") {
         insightsReport = parsed.result
+      } else if (activeRequest.command === "settings.get" || activeRequest.command === "settings.update") {
+        settings = parsed.result.settings
+        if (phase === "idle") plannedSeconds = settings.focus_minutes * 60
       } else if (activeRequest.command.indexOf("sessions.") === 0) {
         refreshReports()
         loadHistory(true)
@@ -215,5 +222,6 @@ QtObject {
     refresh()
     submit("timer.load", {})
     refreshReports()
+    submit("settings.get", {})
   }
 }

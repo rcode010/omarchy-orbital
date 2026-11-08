@@ -14,6 +14,15 @@ PLUGIN_ID = "io.github.rcode010.omarchy-orbital"
 MAX_REQUEST_BYTES = 16384
 MAX_ACTIVITIES = 500
 COLORS = {"blue", "cyan", "green", "amber", "orange", "purple", "pink", "red"}
+DEFAULT_SETTINGS = {
+    "focus_minutes": 25,
+    "short_break_minutes": 5,
+    "long_break_minutes": 15,
+    "long_break_every": 4,
+    "auto_start_break": False,
+    "auto_start_focus": False,
+    "notifications": False,
+}
 
 
 class RequestError(Exception):
@@ -199,6 +208,42 @@ def delete_activity(db, request):
                    "WHERE singleton = 1 AND selected_activity_id = ?", (activity_id,))
         db.execute("DELETE FROM activities WHERE id = ?", (activity_id,))
     return {"activity_id": activity_id}
+
+
+def settings_get(db, request):
+    result = DEFAULT_SETTINGS.copy()
+    for row in db.execute("SELECT key, value FROM settings"):
+        if row["key"] in result:
+            try:
+                result[row["key"]] = json.loads(row["value"])
+            except json.JSONDecodeError:
+                raise RequestError("invalid_settings", "Stored settings are invalid") from None
+    return {"settings": result}
+
+
+def settings_update(db, request):
+    changes = request.get("settings")
+    if not isinstance(changes, dict) or not changes:
+        raise RequestError("invalid_field", "Settings must be a non-empty object")
+    limits = {
+        "focus_minutes": (1, 240), "short_break_minutes": (1, 120),
+        "long_break_minutes": (1, 120), "long_break_every": (2, 12),
+    }
+    for key, value in changes.items():
+        if key not in DEFAULT_SETTINGS:
+            raise RequestError("invalid_field", f"Unknown setting: {key}")
+        if key in limits:
+            low, high = limits[key]
+            if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+                raise RequestError("invalid_field", f"{key} must be {low} to {high}")
+        elif not isinstance(value, bool):
+            raise RequestError("invalid_field", f"{key} must be a boolean")
+    with db:
+        for key, value in changes.items():
+            db.execute("INSERT INTO settings (key, value) VALUES (?, ?) "
+                       "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                       (key, json.dumps(value)))
+    return settings_get(db, request)
 
 
 def utc_now():
@@ -748,6 +793,8 @@ COMMANDS = {
     "activities.restore": lambda db, request: archive_activity(db, request, False),
     "activities.select": select_activity,
     "activities.delete": delete_activity,
+    "settings.get": settings_get,
+    "settings.update": settings_update,
     "timer.load": timer_load,
     "timer.start": timer_start,
     "timer.pause": timer_pause,

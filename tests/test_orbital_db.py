@@ -291,6 +291,18 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertEqual(len(spring["trend"]), 23)
         self.assertEqual(len(autumn["trend"]), 25)
 
+    def test_settings_are_validated_and_persist(self):
+        defaults = self.call("settings.get")["settings"]
+        self.assertEqual(defaults["focus_minutes"], 25)
+        self.assertFalse(defaults["auto_start_break"])
+        updated = self.call("settings.update", settings={"focus_minutes": 40,
+                                                         "auto_start_break": True})["settings"]
+        self.assertEqual(updated["focus_minutes"], 40)
+        self.assertTrue(self.call("settings.get")["settings"]["auto_start_break"])
+        with self.assertRaises(orbital_db.RequestError):
+            self.call("settings.update", settings={"focus_minutes": 0})
+        self.assertEqual(self.call("settings.get")["settings"]["focus_minutes"], 40)
+
 
 if __name__ == "__main__":
     unittest.main()
