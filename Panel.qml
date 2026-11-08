@@ -381,6 +381,10 @@ Panel {
           }
         }
 
+        OrbitalUi.ManualEntry {
+          service: root.service
+        }
+
         Text {
           visible: root.service && root.service.recentSessions.length > 0
           text: "RECENT SESSIONS"

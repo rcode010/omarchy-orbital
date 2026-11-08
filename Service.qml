@@ -3,6 +3,7 @@ import Quickshell.Io
 
 QtObject {
   id: root
+  signal requestFinished(string command, bool success, string code)
 
   property string phase: "idle"
   property string mode: "focus"
@@ -18,6 +19,7 @@ QtObject {
   property bool showArchived: false
   property string selectedActivityId: ""
   property string errorMessage: ""
+  property string errorCode: ""
   property bool busy: false
   property var pending: []
   property var activeRequest: null
@@ -94,10 +96,13 @@ QtObject {
     try { parsed = JSON.parse(output) } catch (error) {}
     if (exitCode !== 0 || !parsed || typeof parsed.ok !== "boolean") {
       errorMessage = "Orbital could not read its data. Check Python and plugin installation."
+      errorCode = "helper_failure"
     } else if (!parsed.ok) {
       errorMessage = parsed.error && parsed.error.message ? parsed.error.message : "Orbital data request failed."
+      errorCode = parsed.error && parsed.error.code ? parsed.error.code : "request_failed"
     } else {
       errorMessage = ""
+      errorCode = ""
       if (activeRequest.command === "activities.list") {
         activities = parsed.result.activities
         selectedActivityId = parsed.result.selected_activity_id || ""
@@ -121,6 +126,7 @@ QtObject {
         refreshReports()
       }
     }
+    requestFinished(activeRequest.command, errorCode === "", errorCode)
     activeRequest = null
     startNext()
   }
