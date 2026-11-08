@@ -6,7 +6,6 @@ Column {
   id: root
   property var service: null
   property var activity: null
-  property string chosenColor: "blue"
   property string pendingCommand: ""
   property bool confirmDelete: false
   signal done()
@@ -19,7 +18,7 @@ Column {
     if (!activity) return
     nameInput.text = activity.name
     iconInput.text = activity.icon
-    chosenColor = activity.color
+    editorColorPicker.selectedColor = activity.color
     confirmDelete = false
     pendingCommand = ""
   }
@@ -89,8 +88,7 @@ Column {
   }
 
   ColorPicker {
-    selectedColor: root.chosenColor
-    onColorSelected: function(color) { root.chosenColor = color }
+    id: editorColorPicker
   }
 
   Row {
@@ -112,7 +110,7 @@ Column {
             root.pendingCommand = "activities.update"
             root.service.submit("activities.update", {
               activity_id: root.activity.id,
-              name: nameInput.text.trim(), icon: iconInput.text.trim(), color: root.chosenColor
+              name: nameInput.text.trim(), icon: iconInput.text.trim(), color: editorColorPicker.selectedColor
             })
           } else if (modelData === "Archive" || modelData === "Restore") {
             root.pendingCommand = modelData === "Archive" ? "activities.archive" : "activities.restore"

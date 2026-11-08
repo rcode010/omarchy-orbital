@@ -14,7 +14,6 @@ Panel {
   property var hostWidget: null
   property var service: null
   property string page: "home"
-  property string newActivityColor: "blue"
   property string pendingNewActivityName: ""
   property string pendingNewActivityColor: ""
   readonly property var barIdentity: hostWidget || root
@@ -405,7 +404,8 @@ Panel {
             if (command !== "activities.create" || root.pendingNewActivityName === "") return
             if (success) {
               if (activityInput.text.trim() === root.pendingNewActivityName) activityInput.text = ""
-              if (root.newActivityColor === root.pendingNewActivityColor) root.newActivityColor = "blue"
+              if (newColorPicker.selectedColor === root.pendingNewActivityColor)
+                newColorPicker.selectedColor = "blue"
             }
             root.pendingNewActivityName = ""
             root.pendingNewActivityColor = ""
@@ -470,7 +470,7 @@ Panel {
             function createActivity() {
               if (!root.service || root.service.busy || activityInput.text.trim() === "") return
               root.pendingNewActivityName = activityInput.text.trim()
-              root.pendingNewActivityColor = root.newActivityColor
+              root.pendingNewActivityColor = newColorPicker.selectedColor
               root.service.submit("activities.create", {
                 name: root.pendingNewActivityName, color: root.pendingNewActivityColor
               })
@@ -506,8 +506,7 @@ Panel {
         }
 
         OrbitalUi.ColorPicker {
-          selectedColor: root.newActivityColor
-          onColorSelected: function(color) { root.newActivityColor = color }
+          id: newColorPicker
         }
 
         OrbitalUi.ManualEntry {
