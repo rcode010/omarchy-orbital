@@ -485,6 +485,41 @@ def recent_sessions(db, request):
     return {"sessions": [dict(row) for row in rows]}
 
 
+def list_sessions(db, request):
+    limit = request.get("limit", 20)
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
+        raise RequestError("invalid_field", "History page size must be 1 to 50")
+    activity_id = request.get("activity_id")
+    if activity_id is not None:
+        activity_id = text_field(request, "activity_id", 36)
+    before = request.get("before")
+    if before is not None:
+        if not isinstance(before, dict) or set(before) != {"started_at", "id"}:
+            raise RequestError("invalid_field", "Invalid history cursor")
+        utc_timestamp(before["started_at"])
+        if not isinstance(before["id"], str) or len(before["id"]) > 36:
+            raise RequestError("invalid_field", "Invalid history cursor")
+    query = (
+        "SELECT s.id, s.activity_id, a.name AS activity_name, a.icon, a.color, "
+        "s.mode, s.source, s.started_at, s.ended_at, s.active_seconds, s.note, s.reason "
+        "FROM sessions s JOIN activities a ON a.id = s.activity_id WHERE 1 = 1"
+    )
+    values = []
+    if activity_id:
+        query += " AND s.activity_id = ?"
+        values.append(activity_id)
+    if before:
+        query += " AND (s.started_at < ? OR (s.started_at = ? AND s.id < ?))"
+        values.extend((before["started_at"], before["started_at"], before["id"]))
+    query += " ORDER BY s.started_at DESC, s.id DESC LIMIT ?"
+    values.append(limit + 1)
+    rows = db.execute(query, values).fetchall()
+    has_more = len(rows) > limit
+    items = [dict(row) for row in rows[:limit]]
+    cursor = {"started_at": items[-1]["started_at"], "id": items[-1]["id"]} if has_more else None
+    return {"sessions": items, "next_cursor": cursor}
+
+
 def utc_timestamp(value):
     if not isinstance(value, str) or len(value) > 40:
         raise RequestError("invalid_field", "Start time must include a time zone offset")
@@ -607,6 +642,7 @@ COMMANDS = {
     "timer.complete": timer_complete,
     "reports.day": day_summary,
     "sessions.recent": recent_sessions,
+    "sessions.list": list_sessions,
     "sessions.add_manual": add_manual,
     "sessions.edit": edit_session,
     "sessions.delete": delete_session,

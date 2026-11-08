@@ -250,6 +250,20 @@ class ActivityStorageTests(unittest.TestCase):
                   allow_overlap=True)
         self.assertEqual(self.call("reports.day", day="2026-11-07", zone="UTC")["total_ms"], 5400000)
 
+    def test_history_pages_are_bounded_and_filterable(self):
+        first = self.call("activities.create", name="Study")["activity_id"]
+        second = self.call("activities.create", name="Reading")["activity_id"]
+        for hour, activity_id in ((9, first), (10, second), (11, first)):
+            self.call("sessions.add_manual", activity_id=activity_id,
+                      started_at=f"2026-11-07T{hour:02d}:00:00+00:00", active_seconds=600)
+        first_page = self.call("sessions.list", limit=2)
+        self.assertEqual(len(first_page["sessions"]), 2)
+        self.assertIsNotNone(first_page["next_cursor"])
+        second_page = self.call("sessions.list", limit=2, before=first_page["next_cursor"])
+        self.assertEqual(len(second_page["sessions"]), 1)
+        self.assertIsNone(second_page["next_cursor"])
+        self.assertEqual(len(self.call("sessions.list", activity_id=first)["sessions"]), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
