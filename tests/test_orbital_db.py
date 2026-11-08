@@ -310,6 +310,23 @@ class ActivityStorageTests(unittest.TestCase):
             self.assertEqual(sum(point["active_ms"] for point in report["trend"]), report["total_ms"])
             self.assertEqual(sum(item["active_ms"] for item in report["activities"]), report["total_ms"])
 
+    def test_selected_activity_lifetime_survives_empty_period_and_rename(self):
+        activity_id = self.call("activities.create", name="Study")["activity_id"]
+        other_id = self.call("activities.create", name="Reading")["activity_id"]
+        self.call("sessions.add_manual", activity_id=activity_id,
+                  started_at="2025-06-01T10:00:00+00:00", active_seconds=1800)
+        self.call("sessions.add_manual", activity_id=activity_id,
+                  started_at="2025-06-02T10:00:00+00:00", active_seconds=3600)
+        self.call("sessions.add_manual", activity_id=other_id,
+                  started_at="2025-06-03T10:00:00+00:00", active_seconds=900)
+        self.call("activities.update", activity_id=activity_id, name="Learning")
+        report = self.call("reports.period", period="month", anchor="2026-01-01",
+                           zone="UTC", activity_id=activity_id)
+        self.assertEqual(report["total_ms"], 0)
+        self.assertEqual(report["selected_lifetime"]["total_ms"], 5400000)
+        self.assertEqual(report["selected_lifetime"]["session_count"], 2)
+        self.assertEqual(report["selected_lifetime"]["name"], "Learning")
+
     def test_leap_day_period_and_dst_hour_count(self):
         _, start, end, _, _ = orbital_db.period_dates(
             {"period": "month", "anchor": "2024-02-29"}, orbital_db.ZoneInfo("UTC")

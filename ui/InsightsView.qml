@@ -4,6 +4,7 @@ import qs.Commons as Commons
 
 Column {
   id: root
+  signal openSelectedHistory()
   property var service: null
   property int hoveredIndex: -1
   property bool showValues: false
@@ -103,6 +104,41 @@ Column {
     opacity: 0.65
     font.family: Style.font.family
     font.pixelSize: Style.font.body
+  }
+
+  Column {
+    visible: root.report && root.report.selected_lifetime !== null
+    width: root.width
+    spacing: Style.space(4)
+
+    Text {
+      text: root.report && root.report.selected_lifetime
+        ? "SELECTED ACTIVITY · ALL TIME" : ""
+      color: Commons.Color.foreground
+      opacity: 0.6
+      font.family: Style.font.family
+      font.pixelSize: Style.font.caption
+      font.letterSpacing: 1.5
+    }
+
+    Text {
+      width: parent.width
+      text: root.report && root.report.selected_lifetime
+        ? (root.report.selected_lifetime.icon ? root.report.selected_lifetime.icon + "  " : "")
+          + root.report.selected_lifetime.name + " · "
+          + root.service.formatDuration(root.report.selected_lifetime.total_ms) : ""
+      elide: Text.ElideRight
+      color: Commons.Color.foreground
+      font.family: Style.font.family
+      font.pixelSize: Style.font.body
+      font.weight: Font.DemiBold
+    }
+
+    ActionText {
+      text: "View selected history"
+      enabled: root.service && !root.service.busy
+      onActivated: root.openSelectedHistory()
+    }
   }
 
   Text {

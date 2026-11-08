@@ -42,10 +42,12 @@ def main():
             for _ in range(2):
                 started = time.perf_counter()
                 report = orbital_db.period_summary(db, {
-                    "period": "year", "anchor": "2026-06-01", "zone": "UTC"
+                    "period": "year", "anchor": "2026-06-01", "zone": "UTC",
+                    "activity_id": activities[0]
                 })
                 timings.append((time.perf_counter() - started) * 1000)
             assert report["total_ms"] == sum(point["active_ms"] for point in report["trend"])
+            assert report["selected_lifetime"]["session_count"] > 0
             print(f"sessions=50000 cold_ms={timings[0]:.1f} warm_ms={timings[1]:.1f} "
                   f"total_hours={report['total_ms'] / 3600000:.1f}")
 

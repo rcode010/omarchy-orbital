@@ -151,6 +151,7 @@ QtObject {
   function loadInsights() {
     var request = { period: insightsPeriod }
     if (insightsPeriod !== "today" && insightsAnchor) request.anchor = insightsAnchor
+    if (selectedActivityId) request.activity_id = selectedActivityId
     submit("reports.period", request)
   }
 

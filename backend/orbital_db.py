@@ -764,12 +764,28 @@ def period_summary(db, request):
             trend.append({"key": key, "label": current.strftime("%a %d") if period == "week" else str(current.day),
                           "active_ms": daily.get(key, 0)})
             current += timedelta(days=1)
+    selected_lifetime = None
+    if request.get("activity_id") is not None:
+        activity_id = text_field(request, "activity_id", 36)
+        activity = db.execute("SELECT id, name, icon FROM activities WHERE id = ?", (activity_id,)).fetchone()
+        if activity is None:
+            raise RequestError("not_found", "Activity not found")
+        lifetime = db.execute(
+            "SELECT COUNT(*) AS session_count, "
+            "COALESCE(SUM(COALESCE((SELECT SUM(w.active_ms) FROM work_segments w "
+            "WHERE w.session_id = s.id), s.active_seconds * 1000)), 0) AS total_ms "
+            "FROM sessions s WHERE s.activity_id = ?", (activity_id,)
+        ).fetchone()
+        selected_lifetime = {"activity_id": activity_id, "name": activity["name"],
+                             "icon": activity["icon"], "total_ms": lifetime["total_ms"],
+                             "session_count": lifetime["session_count"]}
     return {"period": period, "start_day": first_day.isoformat(),
             "end_day_inclusive": (end_day - timedelta(days=1)).isoformat(),
             "end_day_exclusive": end_day.isoformat(),
             "previous_anchor": previous.isoformat(), "next_anchor": following.isoformat(),
             "total_ms": sum(item["active_ms"] for item in activities),
-            "session_count": len(sessions), "activities": activities, "trend": trend}
+            "session_count": len(sessions), "activities": activities, "trend": trend,
+            "selected_lifetime": selected_lifetime}
 
 
 def recent_sessions(db, request):

@@ -505,6 +505,10 @@ Panel {
         OrbitalUi.InsightsView {
           visible: root.page === "insights"
           service: root.service
+          onOpenSelectedHistory: {
+            root.service.historyFilterId = root.service.selectedActivityId
+            root.setPage("history")
+          }
         }
 
         OrbitalUi.SettingsView {
