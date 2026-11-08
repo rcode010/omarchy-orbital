@@ -14,6 +14,9 @@ Panel {
   property var hostWidget: null
   property var service: null
   property string page: "home"
+  property string newActivityColor: "blue"
+  property string pendingNewActivityName: ""
+  property string pendingNewActivityColor: ""
   readonly property var barIdentity: hostWidget || root
   readonly property color foreground: bar ? bar.foreground : Commons.Color.foreground
 
@@ -396,6 +399,19 @@ Panel {
           onDone: editor.activity = null
         }
 
+        Connections {
+          target: root.service
+          function onRequestFinished(command, success) {
+            if (command !== "activities.create" || root.pendingNewActivityName === "") return
+            if (success) {
+              if (activityInput.text.trim() === root.pendingNewActivityName) activityInput.text = ""
+              if (root.newActivityColor === root.pendingNewActivityColor) root.newActivityColor = "blue"
+            }
+            root.pendingNewActivityName = ""
+            root.pendingNewActivityColor = ""
+          }
+        }
+
         Row {
           width: parent.width
           spacing: Style.space(8)
@@ -439,15 +455,25 @@ Panel {
             radius: Style.space(8)
             color: Commons.Color.accent
             activeFocusOnTab: true
+            enabled: root.service && !root.service.busy
             border.color: activeFocus ? root.foreground : "transparent"
             border.width: activeFocus ? 2 : 0
-            Keys.onReturnPressed: createActivity()
-            Keys.onSpacePressed: createActivity()
+            Keys.onReturnPressed: function(event) {
+              createActivity()
+              event.accepted = true
+            }
+            Keys.onSpacePressed: function(event) {
+              createActivity()
+              event.accepted = true
+            }
 
             function createActivity() {
-              if (!root.service || activityInput.text.trim() === "") return
-              root.service.submit("activities.create", { name: activityInput.text.trim() })
-              activityInput.text = ""
+              if (!root.service || root.service.busy || activityInput.text.trim() === "") return
+              root.pendingNewActivityName = activityInput.text.trim()
+              root.pendingNewActivityColor = root.newActivityColor
+              root.service.submit("activities.create", {
+                name: root.pendingNewActivityName, color: root.pendingNewActivityColor
+              })
             }
 
             Text {
@@ -468,6 +494,20 @@ Panel {
               }
             }
           }
+        }
+
+        Text {
+          text: "NEW ACTIVITY COLOR"
+          color: root.foreground
+          opacity: 0.6
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          font.letterSpacing: 1.5
+        }
+
+        OrbitalUi.ColorPicker {
+          selectedColor: root.newActivityColor
+          onColorSelected: function(color) { root.newActivityColor = color }
         }
 
         OrbitalUi.ManualEntry {

@@ -35,6 +35,7 @@ class ActivityStorageTests(unittest.TestCase):
         self.call("activities.select", activity_id=second)
         self.call("activities.update", activity_id=second, name="Books", color="purple")
         self.assertEqual(self.call("activities.list")["activities"][1]["name"], "Books")
+        self.assertEqual(self.call("activities.list")["activities"][1]["color"], "purple")
         self.call("activities.archive", activity_id=second)
         self.assertEqual(len(self.call("activities.list")["activities"]), 1)
         self.assertIsNone(self.call("activities.list")["selected_activity_id"])

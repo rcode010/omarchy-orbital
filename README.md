@@ -17,7 +17,7 @@ Database requests are serialized. If a helper call exceeds 30 seconds, the panel
 
 Activity names are limited to 80 characters, and the current data protocol caps a library at 500 activities so UI responses remain bounded.
 
-Select an activity, then choose **Manage selected** to edit its name, icon, and color or archive it. Enable **Show archived** to restore an archived activity. Deletion requires a second click and is refused when the activity has saved history; archiving keeps that history intact.
+Choose a color before adding a new activity, or select an activity and choose **Manage selected** to edit its name, icon, and color or archive it. The selected swatch has a check mark and a keyboard-accessible label. Enable **Show archived** to restore an archived activity. Deletion requires a second click and is refused when the activity has saved history; archiving keeps that history intact.
 
 Add Missed Time accepts a local start date/time and either a duration in whole minutes or an optional local end time, plus an optional note. The end time takes precedence when provided. Future spans are refused. Overlaps with previously saved time require the explicit **Allow overlap** choice. Manual entries do not change a running timer. History shows bounded 20-row pages with Older and Newer navigation, displays each entry's exact saved duration, mode, source, and note, and can filter by any activity, including archived ones, and an inclusive local-calendar range. It supports corrections and confirmed deletion. A session crossing midnight appears in either calendar day it touches. Correcting a measured session's start or duration replaces its original active segments with one corrected interval; the source is labeled `corrected`.
 

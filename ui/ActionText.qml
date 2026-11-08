@@ -13,9 +13,18 @@ Text {
   opacity: enabled ? 1 : 0.45
   activeFocusOnTab: enabled
 
-  Keys.onReturnPressed: activated()
-  Keys.onEnterPressed: activated()
-  Keys.onSpacePressed: activated()
+  Keys.onReturnPressed: function(event) {
+    activated()
+    event.accepted = true
+  }
+  Keys.onEnterPressed: function(event) {
+    activated()
+    event.accepted = true
+  }
+  Keys.onSpacePressed: function(event) {
+    activated()
+    event.accepted = true
+  }
 
   MouseArea {
     anchors.fill: parent

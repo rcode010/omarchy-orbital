@@ -1,17 +1,15 @@
 import QtQuick
 import qs.Commons
 import qs.Commons as Commons
-import "ActivityColors.js" as ActivityColors
 
 Column {
   id: root
   property var service: null
   property var activity: null
   property string chosenColor: "blue"
+  property string pendingCommand: ""
   property bool confirmDelete: false
   signal done()
-
-  readonly property var palette: ActivityColors.palette
 
   visible: activity !== null
   width: parent ? parent.width : 0
@@ -23,6 +21,16 @@ Column {
     iconInput.text = activity.icon
     chosenColor = activity.color
     confirmDelete = false
+    pendingCommand = ""
+  }
+
+  Connections {
+    target: root.service
+    function onRequestFinished(command, success) {
+      if (command !== root.pendingCommand) return
+      root.pendingCommand = ""
+      if (success) root.done()
+    }
   }
 
   Text {
@@ -80,34 +88,9 @@ Column {
     }
   }
 
-  Row {
-    spacing: Style.space(8)
-
-    Repeater {
-      model: root.palette
-
-      Rectangle {
-        required property var modelData
-        width: Style.space(23)
-        height: width
-        radius: width / 2
-        color: modelData.value
-        border.color: Commons.Color.foreground
-        border.width: root.chosenColor === modelData.name || activeFocus ? 2 : 0
-        activeFocusOnTab: true
-        Keys.onReturnPressed: root.chosenColor = modelData.name
-        Keys.onSpacePressed: root.chosenColor = modelData.name
-
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: {
-            parent.forceActiveFocus()
-            root.chosenColor = modelData.name
-          }
-        }
-      }
-    }
+  ColorPicker {
+    selectedColor: root.chosenColor
+    onColorSelected: function(color) { root.chosenColor = color }
   }
 
   Row {
@@ -126,20 +109,19 @@ Column {
         enabled: root.service && !root.service.busy
         onActivated: {
           if (modelData === "Save") {
+            root.pendingCommand = "activities.update"
             root.service.submit("activities.update", {
               activity_id: root.activity.id,
               name: nameInput.text.trim(), icon: iconInput.text.trim(), color: root.chosenColor
             })
-            root.done()
           } else if (modelData === "Archive" || modelData === "Restore") {
-            root.service.submit(modelData === "Archive" ? "activities.archive" : "activities.restore",
-                                { activity_id: root.activity.id })
-            root.done()
+            root.pendingCommand = modelData === "Archive" ? "activities.archive" : "activities.restore"
+            root.service.submit(root.pendingCommand, { activity_id: root.activity.id })
           } else if (modelData === "Delete") {
             root.confirmDelete = true
           } else if (modelData === "Confirm delete") {
+            root.pendingCommand = "activities.delete"
             root.service.submit("activities.delete", { activity_id: root.activity.id })
-            root.done()
           } else {
             root.done()
           }
