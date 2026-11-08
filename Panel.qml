@@ -158,6 +158,16 @@ Panel {
         }
 
         Text {
+          text: root.service && root.service.today.day
+            ? Qt.formatDate(new Date(root.service.today.day + "T12:00:00"), "dddd, MMMM d")
+            : ""
+          color: root.foreground
+          opacity: 0.65
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+
+        Text {
           width: parent.width
           wrapMode: Text.WordWrap
           text: root.service && root.service.activities.length
