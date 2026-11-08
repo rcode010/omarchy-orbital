@@ -423,9 +423,12 @@ class ActivityStorageTests(unittest.TestCase):
         self.call("activities.create", name="Study")
         self.call("settings.update", settings={"auto_start_break": True, "idle_minutes": 5})
         clock = {"ns": 0}
+        origin = orbital_db.datetime(2026, 1, 1, tzinfo=orbital_db.timezone.utc)
+        def now():
+            return (origin + orbital_db.timedelta(microseconds=clock["ns"] // 1000)).isoformat(timespec="milliseconds")
         with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
             orbital_db.time, "monotonic_ns", side_effect=lambda: clock["ns"]
-        ):
+        ), patch.object(orbital_db, "utc_now", side_effect=now):
             self.call("timer.start", mode="focus", planned_seconds=60)
             clock["ns"] += 60 * 1_000_000_000
             self.call("timer.complete")
