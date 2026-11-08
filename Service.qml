@@ -38,6 +38,11 @@ QtObject {
     plannedSeconds = timer.planned_seconds
     displayStartedAt = Date.now()
     updateDisplay()
+    completionTick.stop()
+    if (phase === "running" && mode === "focus") {
+      completionTick.interval = Math.max(1000, plannedSeconds * 1000 - activeMs)
+      completionTick.start()
+    }
   }
 
   function updateDisplay() {
@@ -114,6 +119,11 @@ QtObject {
     repeat: true
     running: root.phase === "running"
     onTriggered: root.submit("timer.checkpoint", {})
+  }
+
+  property Timer completionTick: Timer {
+    repeat: false
+    onTriggered: root.submit("timer.complete", {})
   }
 
   Component.onCompleted: {

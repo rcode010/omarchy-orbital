@@ -276,7 +276,7 @@ def timer_checkpoint(db, request):
         return timer_view(timer_row(db))
 
 
-def timer_stop(db, request, save):
+def timer_stop(db, request, save, reason=None):
     now_ns = time.monotonic_ns()
     current_boot = boot_id()
     now = utc_now()
@@ -293,12 +293,35 @@ def timer_stop(db, request, save):
                        "active_seconds, reason) VALUES (?, ?, ?, 'measured', ?, ?, ?, ?)",
                        (row["session_id"], row["selected_activity_id"], row["mode"],
                         row["work_started_at"], now, seconds,
-                        "finish_early" if row["mode"] == "focus" else "finish"))
+                        reason or ("finish_early" if row["mode"] == "focus" else "finish")))
         db.execute("UPDATE timer_state SET phase = 'idle', active_ms = 0, active_seconds = 0, "
                    "segment_monotonic_ns = NULL, boot_id = NULL, work_started_at = NULL, "
                    "session_id = NULL, updated_at = ? WHERE singleton = 1", (now,))
         return {"saved": bool(save and seconds > 0), "active_seconds": seconds if save else 0,
                 "timer": timer_view(timer_row(db))}
+
+
+def timer_complete(db, request):
+    with db:
+        row = timer_row(db)
+        if row["phase"] == "idle":
+            return {"completed": False, "timer": timer_view(row)}
+        if row["phase"] != "running" or row["mode"] != "focus":
+            raise RequestError("invalid_state", "No running focus session")
+        now_ns = time.monotonic_ns()
+        current_boot = boot_id()
+        if row["boot_id"] != current_boot:
+            db.execute("UPDATE timer_state SET phase = 'paused', segment_monotonic_ns = NULL, "
+                       "updated_at = ? WHERE singleton = 1", (utc_now(),))
+            return {"completed": False, "timer": timer_view(timer_row(db))}
+        total = elapsed_ms(row, now_ns, current_boot)
+        if total < row["planned_seconds"] * 1000:
+            db.execute("UPDATE timer_state SET active_ms = ?, segment_monotonic_ns = ?, "
+                       "updated_at = ? WHERE singleton = 1", (total, now_ns, utc_now()))
+            return {"completed": False, "timer": timer_view(timer_row(db))}
+    result = timer_stop(db, request, True, "completed")
+    result["completed"] = result["saved"]
+    return result
 
 
 COMMANDS = {
@@ -315,6 +338,7 @@ COMMANDS = {
     "timer.checkpoint": timer_checkpoint,
     "timer.finish": lambda db, request: timer_stop(db, request, True),
     "timer.discard": lambda db, request: timer_stop(db, request, False),
+    "timer.complete": timer_complete,
 }
 
 

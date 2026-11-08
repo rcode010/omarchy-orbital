@@ -112,6 +112,25 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertEqual(recovered["phase"], "paused")
         self.assertEqual(recovered["active_ms"], 60000)
 
+    def test_natural_completion_waits_for_active_duration_and_is_idempotent(self):
+        self.call("activities.create", name="Design")
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db.time, "monotonic_ns", side_effect=[0, 30 * 1_000_000_000,
+                                                            60 * 1_000_000_000,
+                                                            60 * 1_000_000_000,
+                                                            60 * 1_000_000_000]
+        ):
+            self.call("timer.start", mode="focus", planned_seconds=60)
+            early = self.call("timer.complete")
+            completed = self.call("timer.complete")
+            repeated = self.call("timer.complete")
+        self.assertFalse(early["completed"])
+        self.assertTrue(completed["completed"])
+        self.assertFalse(repeated["completed"])
+        with closing(orbital_db.connect(self.path)) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT reason FROM sessions").fetchone()[0], "completed")
+
     def test_cli_bounds_and_malformed_json(self):
         env = {**os.environ, "XDG_DATA_HOME": self.temp.name}
         script = ROOT / "backend" / "orbital_db.py"

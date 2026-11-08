@@ -4,7 +4,7 @@ Orbital is a local activity timer for the built-in Omarchy bar. Create recurring
 
 Repository: https://github.com/rcode010/omarchy-orbital
 
-This repository is under active development. The current build provides activity creation and selection, a shared timer service, pause and resume, Finish Early or Finish, Discard, and durable SQLite sessions. The panel has no History, Today totals, Insights, settings, or Pomodoro break flow yet. The timer does not automatically complete a focus session; use Finish Early to save it. Do not treat this build as a stable 1.0 release.
+This repository is under active development. The current build provides activity creation and selection, a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, and durable SQLite sessions. The panel has no History, Today totals, Insights, settings, or Pomodoro break flow yet. Do not treat this build as a stable 1.0 release.
 
 ## Requirements
 
