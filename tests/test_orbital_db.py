@@ -222,6 +222,21 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertEqual(second["session_count"], 1)
         self.assertEqual(len(self.call("sessions.recent")["sessions"]), 1)
 
+    def test_wall_clock_jump_does_not_inflate_measured_work(self):
+        self.call("activities.create", name="Study")
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db, "utc_now", side_effect=["2025-06-01T10:00:00.000+00:00",
+                                                "2025-06-01T15:00:00.000+00:00"]
+        ), patch.object(orbital_db.time, "monotonic_ns", side_effect=[0, 60 * 1_000_000_000]):
+            self.call("timer.start", mode="stopwatch")
+            finished = self.call("timer.finish")
+        self.assertEqual(finished["active_seconds"], 60)
+        morning = self.call("reports.period", period="day", anchor="2025-06-01", zone="UTC")
+        self.assertEqual(morning["total_ms"], 60000)
+        with closing(orbital_db.connect(self.path)) as db:
+            segment = db.execute("SELECT started_at, ended_at FROM work_segments").fetchone()
+        self.assertEqual(segment["ended_at"], "2025-06-01T10:01:00.000+00:00")
+
     def test_dst_day_boundaries_and_split(self):
         activity_id = self.call("activities.create", name="Study")["activity_id"]
         with closing(orbital_db.connect(self.path)) as db, db:
