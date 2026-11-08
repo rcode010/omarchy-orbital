@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell.Io
 import Quickshell.Wayland
+import "model/TimerDisplay.js" as TimerDisplay
 
 QtObject {
   id: root
@@ -13,7 +14,8 @@ QtObject {
   property int elapsedSeconds: 0
   property double activeMs: 0
   property int plannedSeconds: 1500
-  property double displayStartedAt: 0
+  property double displayEstimateMs: 0
+  property double lastDisplayWall: 0
   property var activities: []
   property var today: ({ day: "", total_ms: 0, session_count: 0, activities: [] })
   property var todayByActivity: ({})
@@ -73,7 +75,8 @@ QtObject {
     mode = timer.mode
     activeMs = timer.active_ms
     plannedSeconds = timer.planned_seconds
-    displayStartedAt = Date.now()
+    displayEstimateMs = activeMs
+    lastDisplayWall = Date.now()
     updateDisplay()
     completionTick.stop()
     if ((phase === "running" && mode === "focus") || phase === "break_running") {
@@ -83,9 +86,14 @@ QtObject {
   }
 
   function updateDisplay() {
-    var active = phase === "running" || phase === "break_running"
-    var displayMs = activeMs + (active ? Math.max(0, Date.now() - displayStartedAt) : 0)
-    elapsedSeconds = Math.floor(displayMs / 1000)
+    elapsedSeconds = Math.floor(displayEstimateMs / 1000)
+  }
+
+  function advanceDisplay() {
+    var next = TimerDisplay.advance(displayEstimateMs, lastDisplayWall, Date.now())
+    displayEstimateMs = next.milliseconds
+    lastDisplayWall = next.lastWall
+    updateDisplay()
   }
 
   function submit(command, values) {
@@ -246,7 +254,7 @@ QtObject {
     interval: 1000
     repeat: true
     running: root.phase === "running" || root.phase === "break_running"
-    onTriggered: root.updateDisplay()
+    onTriggered: root.advanceDisplay()
   }
 
   property Timer checkpointTick: Timer {
