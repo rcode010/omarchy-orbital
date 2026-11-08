@@ -222,6 +222,24 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertEqual(json.loads(listed.stdout)["result"]["activities"][0]["name"],
                          "Reading & writing $(safe)")
 
+    def test_concurrent_cli_helpers_initialize_and_write(self):
+        env = {**os.environ, "XDG_DATA_HOME": str(Path(self.temp.name) / "cli-data"),
+               "PYTHONDONTWRITEBYTECODE": "1"}
+        script = ROOT / "backend" / "orbital_db.py"
+
+        def create(index):
+            request = json.dumps({"command": "activities.create", "name": f"Activity {index}"})
+            completed = subprocess.run([sys.executable, str(script), request],
+                                       capture_output=True, env=env, check=True)
+            return json.loads(completed.stdout)
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(create, range(8)))
+        self.assertTrue(all(result["ok"] for result in results), results)
+        listed = subprocess.run([sys.executable, str(script), '{"command":"activities.list"}'],
+                                capture_output=True, env=env, check=True)
+        self.assertEqual(len(json.loads(listed.stdout)["result"]["activities"]), 8)
+
     def test_day_summary_splits_work_and_excludes_pause(self):
         self.call("activities.create", name="Thesis")
         wall_times = ["2026-11-08T20:50:00.000+00:00", "2026-11-08T21:00:00.000+00:00",

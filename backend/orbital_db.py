@@ -56,13 +56,25 @@ def connect(path):
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys = ON")
         db.execute("PRAGMA busy_timeout = 5000")
-        db.execute("PRAGMA journal_mode = WAL")
+        enable_wal(db)
         os.chmod(path, 0o600)
         migrate(db)
     except Exception:
         db.close()
         raise
     return db
+
+
+def enable_wal(db):
+    deadline = time.monotonic() + 5
+    while True:
+        try:
+            db.execute("PRAGMA journal_mode = WAL")
+            return
+        except sqlite3.OperationalError as error:
+            if "locked" not in str(error).lower() or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.025)
 
 
 def migrate(db):
