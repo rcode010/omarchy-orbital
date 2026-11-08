@@ -119,6 +119,15 @@ class ActivityStorageTests(unittest.TestCase):
             result = subprocess.run([sys.executable, str(script)], input=payload, capture_output=True, env=env, check=True)
             self.assertIn(expected.encode(), result.stdout)
 
+    def test_symlink_database_is_refused(self):
+        target = Path(self.temp.name) / "other.sqlite3"
+        target.touch()
+        self.path.parent.mkdir()
+        self.path.symlink_to(target)
+        with self.assertRaises(orbital_db.RequestError) as error:
+            self.call("activities.list")
+        self.assertEqual(error.exception.code, "unsafe_path")
+
 
 if __name__ == "__main__":
     unittest.main()

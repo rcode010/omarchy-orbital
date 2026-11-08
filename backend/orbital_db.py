@@ -26,6 +26,9 @@ def data_path():
 
 
 def connect(path):
+    os.umask(0o077)
+    if path.is_symlink() or path.parent.is_symlink():
+        raise RequestError("unsafe_path", "Orbital data path cannot be a symlink")
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(path.parent, 0o700)
     db = sqlite3.connect(path, timeout=5)
