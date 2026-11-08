@@ -13,6 +13,8 @@ This repository is under active development. The current build provides activity
 
 The plugin ID is `io.github.rcode010.omarchy-orbital`. Its service owns the timer and is shared by bar widgets on all monitors. The panel closes without stopping the service. The helper runs only for user actions and a checkpoint every 60 seconds while tracking; the display tick does not write to SQLite.
 
+Database requests are serialized. If a helper call exceeds 30 seconds, the panel stops it, clears queued actions, and shows a **Refresh state** control. Refresh before repeating a timed-out action because the database may have completed the write before the helper stopped.
+
 Activity names are limited to 80 characters, and the current data protocol caps a library at 500 activities so UI responses remain bounded.
 
 Select an activity, then choose **Manage selected** to edit its name, icon, and color or archive it. Enable **Show archived** to restore an archived activity. Deletion requires a second click and is refused when the activity has saved history; archiving keeps that history intact.

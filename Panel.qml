@@ -132,6 +132,13 @@ Panel {
           font.pixelSize: Style.font.body
         }
 
+        OrbitalUi.ActionText {
+          visible: root.service && root.service.errorMessage !== ""
+          text: "Refresh state"
+          enabled: root.service && !root.service.busy
+          onActivated: root.service.reloadState()
+        }
+
         Column {
           id: home
           visible: root.page === "home"

@@ -40,6 +40,7 @@ QtObject {
   property string errorMessage: ""
   property string errorCode: ""
   property bool busy: false
+  property bool helperTimedOut: false
   property var pending: []
   property var activeRequest: null
 
@@ -110,8 +111,10 @@ QtObject {
     activeRequest = pending[0]
     pending = pending.slice(1)
     busy = true
+    helperTimedOut = false
     helper.command = ["python3", helperPath, JSON.stringify(activeRequest)]
     helper.running = true
+    helperTimeout.restart()
   }
 
   function refresh() {
@@ -121,6 +124,13 @@ QtObject {
   function refreshReports() {
     submit("reports.day", {})
     submit("sessions.recent", { limit: 8 })
+  }
+
+  function reloadState() {
+    submit("timer.load", {})
+    refresh()
+    submit("settings.get", {})
+    refreshReports()
   }
 
   function loadHistory(reset) {
@@ -155,10 +165,14 @@ QtObject {
   }
 
   function handleResult(exitCode, output) {
-    busy = false
+    helperTimeout.stop()
     var parsed = null
     try { parsed = JSON.parse(output) } catch (error) {}
-    if (exitCode !== 0 || !parsed || typeof parsed.ok !== "boolean") {
+    if (helperTimedOut) {
+      errorMessage = "Orbital data request timed out. Refresh state before retrying."
+      errorCode = "helper_timeout"
+      pending = []
+    } else if (exitCode !== 0 || !parsed || typeof parsed.ok !== "boolean") {
       errorMessage = "Orbital could not read its data. Check Python and plugin installation."
       errorCode = "helper_failure"
     } else if (!parsed.ok) {
@@ -231,6 +245,7 @@ QtObject {
     }
     requestFinished(activeRequest.command, errorCode === "", errorCode)
     activeRequest = null
+    busy = false
     startNext()
   }
 
@@ -241,6 +256,14 @@ QtObject {
     }
     onExited: function(exitCode) {
       root.handleResult(exitCode, helperOutput.text)
+    }
+  }
+
+  property Timer helperTimeout: Timer {
+    interval: 30000
+    onTriggered: {
+      root.helperTimedOut = true
+      root.helper.running = false
     }
   }
 
