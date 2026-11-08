@@ -21,7 +21,8 @@ Column {
   function save() {
     var limits = {
       focus_minutes: [1, 240], short_break_minutes: [1, 120],
-      long_break_minutes: [1, 120], long_break_every: [2, 12]
+      long_break_minutes: [1, 120], long_break_every: [2, 12],
+      idle_minutes: [1, 30]
     }
     var changes = {}
     for (var key in limits) {
@@ -35,6 +36,7 @@ Column {
     changes.auto_start_break = draft.auto_start_break === true
     changes.auto_start_focus = draft.auto_start_focus === true
     changes.notifications = draft.notifications === true
+    changes.pause_on_idle = draft.pause_on_idle === true
     service.submit("settings.update", { settings: changes })
   }
 
@@ -68,7 +70,8 @@ Column {
       { key: "focus_minutes", label: "Focus minutes", min: 1, max: 240 },
       { key: "short_break_minutes", label: "Short break minutes", min: 1, max: 120 },
       { key: "long_break_minutes", label: "Long break minutes", min: 1, max: 120 },
-      { key: "long_break_every", label: "Long break every", min: 2, max: 12 }
+      { key: "long_break_every", label: "Long break every", min: 2, max: 12 },
+      { key: "idle_minutes", label: "Pause after idle minutes", min: 1, max: 30 }
     ]
 
     Row {
@@ -112,7 +115,8 @@ Column {
     model: [
       { key: "auto_start_break", label: "Start breaks automatically" },
       { key: "auto_start_focus", label: "Start next focus automatically" },
-      { key: "notifications", label: "Completion notifications" }
+      { key: "notifications", label: "Completion notifications" },
+      { key: "pause_on_idle", label: "Pause when idle" }
     ]
 
     Text {

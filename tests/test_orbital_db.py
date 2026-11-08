@@ -396,6 +396,46 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertEqual(content["sessions"][0]["active_seconds"], 900)
         self.assertEqual(len(content["work_segments"]), 1)
 
+    def test_idle_pause_removes_inactive_window_across_checkpoints(self):
+        self.call("activities.create", name="Study")
+        clock = {"ns": 0}
+        wall = {"time": orbital_db.datetime(2026, 11, 7, 12, tzinfo=orbital_db.timezone.utc)}
+        def now():
+            return wall["time"].isoformat(timespec="milliseconds")
+        def advance(seconds):
+            clock["ns"] += seconds * 1_000_000_000
+            wall["time"] += orbital_db.timedelta(seconds=seconds)
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db, "utc_now", side_effect=now
+        ), patch.object(orbital_db.time, "monotonic_ns", side_effect=lambda: clock["ns"]):
+            self.call("timer.start", mode="stopwatch")
+            for _ in range(10):
+                advance(60)
+                self.call("timer.checkpoint")
+            paused = self.call("timer.pause", cause="idle")
+            self.assertEqual(paused["active_ms"], 300000)
+            self.call("timer.finish")
+        report = self.call("reports.day", day="2026-11-07", zone="UTC")
+        self.assertEqual(report["total_ms"], 300000)
+        self.assertEqual(self.call("sessions.recent")["sessions"][0]["active_seconds"], 300)
+
+    def test_idle_pause_does_not_turn_break_into_work(self):
+        self.call("activities.create", name="Study")
+        self.call("settings.update", settings={"auto_start_break": True, "idle_minutes": 5})
+        clock = {"ns": 0}
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db.time, "monotonic_ns", side_effect=lambda: clock["ns"]
+        ):
+            self.call("timer.start", mode="focus", planned_seconds=60)
+            clock["ns"] += 60 * 1_000_000_000
+            self.call("timer.complete")
+            clock["ns"] += 600 * 1_000_000_000
+            paused = self.call("timer.pause", cause="idle")
+        self.assertEqual(paused["phase"], "break_paused")
+        self.assertEqual(paused["active_ms"], 300000)
+        self.assertEqual(self.call("reports.period", period="year", anchor="2026-11-07",
+                                   zone="UTC")["session_count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

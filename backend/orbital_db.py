@@ -24,6 +24,8 @@ DEFAULT_SETTINGS = {
     "auto_start_break": False,
     "auto_start_focus": False,
     "notifications": False,
+    "pause_on_idle": True,
+    "idle_minutes": 5,
 }
 
 
@@ -233,6 +235,7 @@ def settings_update(db, request):
     limits = {
         "focus_minutes": (1, 240), "short_break_minutes": (1, 120),
         "long_break_minutes": (1, 120), "long_break_every": (2, 12),
+        "idle_minutes": (1, 30),
     }
     for key, value in changes.items():
         if key not in DEFAULT_SETTINGS:
@@ -306,6 +309,28 @@ def record_segment(db, row, now, now_ns, current_boot):
     return duration_ms
 
 
+def trim_work_segments(db, session_id, milliseconds):
+    remaining = milliseconds
+    rows = db.execute("SELECT rowid, started_at, ended_at, active_ms FROM work_segments "
+                      "WHERE session_id = ? ORDER BY rowid DESC", (session_id,)).fetchall()
+    for row in rows:
+        if remaining <= 0:
+            break
+        removed = min(remaining, row["active_ms"])
+        if removed == row["active_ms"]:
+            db.execute("DELETE FROM work_segments WHERE rowid = ?", (row["rowid"],))
+        else:
+            new_ms = row["active_ms"] - removed
+            new_end = datetime.fromisoformat(row["ended_at"]) - timedelta(milliseconds=removed)
+            start = datetime.fromisoformat(row["started_at"])
+            if new_end <= start:
+                new_end = start + timedelta(milliseconds=new_ms)
+            db.execute("UPDATE work_segments SET ended_at = ?, active_ms = ? WHERE rowid = ?",
+                       (new_end.isoformat(timespec="milliseconds"), new_ms, row["rowid"]))
+        remaining -= removed
+    return milliseconds - remaining
+
+
 def timer_load(db, request):
     with db:
         row = timer_row(db)
@@ -356,12 +381,24 @@ def timer_pause(db, request):
     now_ns = time.monotonic_ns()
     current_boot = boot_id()
     now = utc_now()
+    cause = request.get("cause", "user")
+    if cause not in ("user", "idle"):
+        raise RequestError("invalid_field", "Unknown pause cause")
     with db:
         row = timer_row(db)
         if row["phase"] not in ("running", "break_running"):
+            if cause == "idle":
+                return timer_view(row)
             raise RequestError("invalid_state", "Timer is not running")
         total = (row["active_ms"] + record_segment(db, row, now, now_ns, current_boot)
                  if row["phase"] == "running" else elapsed_ms(row, now_ns, current_boot))
+        if cause == "idle":
+            settings = settings_get(db, request)["settings"]
+            idle_ms = settings["idle_minutes"] * 60000
+            if row["phase"] == "running":
+                total -= trim_work_segments(db, row["session_id"], idle_ms)
+            else:
+                total = max(0, total - idle_ms)
         paused = "paused" if row["phase"] == "running" else "break_paused"
         db.execute("UPDATE timer_state SET phase = ?, active_ms = ?, "
                    "segment_monotonic_ns = NULL, segment_started_at = NULL, updated_at = ? "

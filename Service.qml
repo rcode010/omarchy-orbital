@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell.Io
+import Quickshell.Wayland
 
 QtObject {
   id: root
@@ -26,7 +27,7 @@ QtObject {
   property var settings: ({ focus_minutes: 25, short_break_minutes: 5,
                             long_break_minutes: 15, long_break_every: 4,
                             auto_start_break: false, auto_start_focus: false,
-                            notifications: false })
+                            notifications: false, pause_on_idle: true, idle_minutes: 5 })
   property var backups: []
   property string backupMessage: ""
   property string exportName: ""
@@ -230,6 +231,16 @@ QtObject {
   }
 
   property Process notification: Process {}
+
+  property IdleMonitor idleMonitor: IdleMonitor {
+    enabled: root.settings.pause_on_idle
+    timeout: root.settings.idle_minutes * 60
+    respectInhibitors: true
+    onIsIdleChanged: {
+      if (isIdle && (root.phase === "running" || root.phase === "break_running"))
+        root.submit("timer.pause", { cause: "idle" })
+    }
+  }
 
   property Timer displayTick: Timer {
     interval: 1000
