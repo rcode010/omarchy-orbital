@@ -216,10 +216,15 @@ Column {
     font.pixelSize: Style.font.body
   }
 
-  Repeater {
+  ListView {
+    width: root.width
+    height: Math.min(contentHeight, Style.space(240))
+    clip: true
+    spacing: Style.space(8)
+    boundsBehavior: Flickable.StopAtBounds
     model: root.service ? root.service.historySessions : []
 
-    Row {
+    delegate: Row {
       required property var modelData
       width: root.width
       spacing: Style.space(8)
