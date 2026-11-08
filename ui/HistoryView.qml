@@ -8,6 +8,7 @@ Column {
   property var editingSession: null
   property string editingActivityId: ""
   property string validationError: ""
+  property string rangeError: ""
   property bool confirmDelete: false
   property bool allowOverlap: false
 
@@ -73,6 +74,19 @@ Column {
     return "Unknown activity"
   }
 
+  function applyRange() {
+    var start = rangeStart.text.trim()
+    var end = rangeEnd.text.trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start > end) {
+      rangeError = "Enter an ordered range as YYYY-MM-DD."
+      return
+    }
+    rangeError = ""
+    service.historyStartDay = start
+    service.historyEndDay = end
+    service.loadHistory(true)
+  }
+
   Connections {
     target: root.service
     function onRequestFinished(command, success, code) {
@@ -107,6 +121,90 @@ Column {
         }
       }
     }
+  }
+
+  Row {
+    width: root.width
+    spacing: Style.space(8)
+
+    Column {
+      width: (root.width - Style.space(8)) / 2
+      spacing: Style.space(3)
+
+      Text {
+        text: "From · YYYY-MM-DD"
+        color: Commons.Color.foreground
+        opacity: 0.65
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
+
+      TextInput {
+        id: rangeStart
+        width: parent.width
+        text: root.service ? root.service.historyStartDay : ""
+        maximumLength: 10
+        color: Commons.Color.foreground
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        onAccepted: root.applyRange()
+      }
+    }
+
+    Column {
+      width: (root.width - Style.space(8)) / 2
+      spacing: Style.space(3)
+
+      Text {
+        text: "Through · YYYY-MM-DD"
+        color: Commons.Color.foreground
+        opacity: 0.65
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
+
+      TextInput {
+        id: rangeEnd
+        width: parent.width
+        text: root.service ? root.service.historyEndDay : ""
+        maximumLength: 10
+        color: Commons.Color.foreground
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        onAccepted: root.applyRange()
+      }
+    }
+  }
+
+  Row {
+    spacing: Style.space(12)
+
+    ActionText {
+      text: "Apply range"
+      enabled: root.service && !root.service.busy
+      onActivated: root.applyRange()
+    }
+
+    ActionText {
+      text: "All dates"
+      enabled: root.service && !root.service.busy
+      onActivated: {
+        root.rangeError = ""
+        root.service.historyStartDay = ""
+        root.service.historyEndDay = ""
+        rangeStart.text = ""
+        rangeEnd.text = ""
+        root.service.loadHistory(true)
+      }
+    }
+  }
+
+  Text {
+    visible: root.rangeError !== ""
+    text: root.rangeError
+    color: Commons.Color.accent
+    font.family: Style.font.family
+    font.pixelSize: Style.font.body
   }
 
   Text {

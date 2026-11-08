@@ -788,6 +788,21 @@ def list_sessions(db, request):
     activity_id = request.get("activity_id")
     if activity_id is not None:
         activity_id = text_field(request, "activity_id", 36)
+    start_day = request.get("start_day")
+    end_day = request.get("end_day")
+    if start_day is not None or end_day is not None:
+        if not isinstance(start_day, str) or not isinstance(end_day, str):
+            raise RequestError("invalid_day", "Enter both range dates")
+        try:
+            first = date.fromisoformat(start_day)
+            last = date.fromisoformat(end_day)
+        except ValueError:
+            raise RequestError("invalid_day", "Enter valid ISO dates") from None
+        if len(start_day) != 10 or len(end_day) != 10 or first > last or not 2 <= first.year <= 9998 or last.year > 9998:
+            raise RequestError("invalid_day", "Enter an ordered calendar range")
+        zone = local_zone(request)
+        range_start = datetime.combine(first, datetime.min.time(), zone).astimezone(timezone.utc).isoformat()
+        range_end = datetime.combine(last + timedelta(days=1), datetime.min.time(), zone).astimezone(timezone.utc).isoformat()
     before = request.get("before")
     if before is not None:
         if not isinstance(before, dict) or set(before) != {"started_at", "id"}:
@@ -804,6 +819,9 @@ def list_sessions(db, request):
     if activity_id:
         query += " AND s.activity_id = ?"
         values.append(activity_id)
+    if start_day is not None:
+        query += " AND s.started_at < ? AND s.ended_at > ?"
+        values.extend((range_end, range_start))
     if before:
         query += " AND (s.started_at < ? OR (s.started_at = ? AND s.id < ?))"
         values.extend((before["started_at"], before["started_at"], before["id"]))

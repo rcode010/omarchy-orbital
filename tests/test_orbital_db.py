@@ -265,6 +265,18 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertIsNone(second_page["next_cursor"])
         self.assertEqual(len(self.call("sessions.list", activity_id=first)["sessions"]), 2)
 
+    def test_history_calendar_range_includes_overnight_sessions(self):
+        activity_id = self.call("activities.create", name="Study")["activity_id"]
+        self.call("sessions.add_manual", activity_id=activity_id,
+                  started_at="2026-11-05T23:30:00+00:00", active_seconds=3600)
+        self.call("sessions.add_manual", activity_id=activity_id,
+                  started_at="2026-11-07T09:00:00+00:00", active_seconds=600)
+        result = self.call("sessions.list", start_day="2026-11-06", end_day="2026-11-06", zone="UTC")
+        self.assertEqual(len(result["sessions"]), 1)
+        self.assertEqual(result["sessions"][0]["started_at"][:10], "2026-11-05")
+        with self.assertRaises(orbital_db.RequestError):
+            self.call("sessions.list", start_day="2026-11-07", end_day="2026-11-06")
+
     def test_period_totals_and_trends_reconcile(self):
         activity_id = self.call("activities.create", name="Study")["activity_id"]
         self.call("sessions.add_manual", activity_id=activity_id,

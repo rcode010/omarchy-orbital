@@ -23,6 +23,8 @@ QtObject {
   property var historySessions: []
   property var historyCursor: null
   property string historyFilterId: ""
+  property string historyStartDay: ""
+  property string historyEndDay: ""
   property var insightsReport: null
   property string insightsPeriod: "today"
   property string insightsAnchor: ""
@@ -128,6 +130,10 @@ QtObject {
     }
     var request = { limit: 20 }
     if (historyFilterId) request.activity_id = historyFilterId
+    if (historyStartDay && historyEndDay) {
+      request.start_day = historyStartDay
+      request.end_day = historyEndDay
+    }
     if (!reset && historyCursor) request.before = historyCursor
     submit("sessions.list", request)
   }
