@@ -220,6 +220,36 @@ class ActivityStorageTests(unittest.TestCase):
         self.call("activities.delete", activity_id=unused)
         self.assertEqual([row["id"] for row in self.call("activities.list")["activities"]], [used])
 
+    def test_manual_add_edit_delete_updates_calendar_totals(self):
+        first = self.call("activities.create", name="Study")["activity_id"]
+        second = self.call("activities.create", name="Reading")["activity_id"]
+        started = "2026-11-07T15:00:00+03:00"
+        session_id = self.call("sessions.add_manual", activity_id=first, started_at=started,
+                               active_seconds=1800, note="Missed half hour")["session_id"]
+        initial = self.call("reports.day", day="2026-11-07", zone="Asia/Baghdad")
+        self.assertEqual(initial["total_ms"], 1800000)
+        self.call("sessions.edit", session_id=session_id, activity_id=second,
+                  active_seconds=2700, note="Corrected duration")
+        changed = self.call("reports.day", day="2026-11-07", zone="Asia/Baghdad")
+        self.assertEqual(changed["total_ms"], 2700000)
+        self.assertEqual(changed["activities"][0]["activity_id"], second)
+        self.assertEqual(self.call("sessions.recent")["sessions"][0]["source"], "corrected")
+        self.call("sessions.delete", session_id=session_id)
+        self.assertEqual(self.call("reports.day", day="2026-11-07", zone="Asia/Baghdad")["total_ms"], 0)
+
+    def test_manual_overlap_requires_explicit_allowance(self):
+        activity_id = self.call("activities.create", name="Exercise")["activity_id"]
+        start = "2026-11-07T12:00:00+00:00"
+        self.call("sessions.add_manual", activity_id=activity_id, started_at=start, active_seconds=3600)
+        with self.assertRaises(orbital_db.RequestError) as error:
+            self.call("sessions.add_manual", activity_id=activity_id,
+                      started_at="2026-11-07T12:30:00+00:00", active_seconds=1800)
+        self.assertEqual(error.exception.code, "overlap")
+        self.call("sessions.add_manual", activity_id=activity_id,
+                  started_at="2026-11-07T12:30:00+00:00", active_seconds=1800,
+                  allow_overlap=True)
+        self.assertEqual(self.call("reports.day", day="2026-11-07", zone="UTC")["total_ms"], 5400000)
+
 
 if __name__ == "__main__":
     unittest.main()

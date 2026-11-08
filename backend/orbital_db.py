@@ -485,6 +485,110 @@ def recent_sessions(db, request):
     return {"sessions": [dict(row) for row in rows]}
 
 
+def utc_timestamp(value):
+    if not isinstance(value, str) or len(value) > 40:
+        raise RequestError("invalid_field", "Start time must include a time zone offset")
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        raise RequestError("invalid_field", "Start time must be an ISO date and time") from None
+    if parsed.tzinfo is None:
+        raise RequestError("invalid_field", "Start time must include a time zone offset")
+    return parsed.astimezone(timezone.utc)
+
+
+def duration_field(value):
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 86400:
+        raise RequestError("invalid_field", "Duration must be 1 second to 24 hours")
+    return value
+
+
+def manual_span(request, existing=None):
+    start = utc_timestamp(request["started_at"]) if "started_at" in request else (
+        utc_timestamp(existing["started_at"]) if existing else None
+    )
+    duration = duration_field(request["active_seconds"]) if "active_seconds" in request else (
+        existing["active_seconds"] if existing else None
+    )
+    if start is None or duration is None:
+        raise RequestError("invalid_field", "Start time and duration are required")
+    end = start + timedelta(seconds=duration)
+    if end > datetime.now(timezone.utc):
+        raise RequestError("future_time", "Manual time cannot extend into the future")
+    return start.isoformat(timespec="milliseconds"), end.isoformat(timespec="milliseconds"), duration
+
+
+def check_overlap(db, activity_id, start, end, request, excluded_id=None):
+    allow = request.get("allow_overlap", False)
+    if not isinstance(allow, bool):
+        raise RequestError("invalid_field", "allow_overlap must be a boolean")
+    overlapping = db.execute(
+        "SELECT 1 FROM sessions WHERE activity_id = ? AND id != ? "
+        "AND started_at < ? AND ended_at > ? LIMIT 1",
+        (activity_id, excluded_id or "", end, start),
+    ).fetchone()
+    if overlapping and not allow:
+        raise RequestError("overlap", "This time overlaps saved history; confirm the overlap")
+
+
+def add_manual(db, request):
+    activity_id = text_field(request, "activity_id", 36)
+    start, end, duration = manual_span(request)
+    note = text_field(request, "note", 500, "", True)
+    session_id = str(uuid.uuid4())
+    with db:
+        if db.execute("SELECT 1 FROM activities WHERE id = ?", (activity_id,)).fetchone() is None:
+            raise RequestError("not_found", "Activity not found")
+        check_overlap(db, activity_id, start, end, request)
+        db.execute("INSERT INTO sessions (id, activity_id, mode, source, started_at, ended_at, "
+                   "active_seconds, note, reason) VALUES (?, ?, 'manual', 'manual', ?, ?, ?, ?, 'manual')",
+                   (session_id, activity_id, start, end, duration, note))
+        db.execute("INSERT INTO work_segments VALUES (?, ?, ?, ?)",
+                   (session_id, start, end, duration * 1000))
+    return {"session_id": session_id}
+
+
+def edit_session(db, request):
+    session_id = text_field(request, "session_id", 36)
+    changed = any(field in request for field in ("activity_id", "started_at", "active_seconds", "note"))
+    if not changed:
+        raise RequestError("invalid_request", "No session changes supplied")
+    with db:
+        row = db.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        if row is None:
+            raise RequestError("not_found", "Session not found")
+        activity_id = text_field(request, "activity_id", 36, row["activity_id"])
+        if db.execute("SELECT 1 FROM activities WHERE id = ?", (activity_id,)).fetchone() is None:
+            raise RequestError("not_found", "Activity not found")
+        temporal_change = "started_at" in request or "active_seconds" in request
+        if temporal_change:
+            start, end, duration = manual_span(request, row)
+        else:
+            start, end, duration = row["started_at"], row["ended_at"], row["active_seconds"]
+        if temporal_change or activity_id != row["activity_id"]:
+            check_overlap(db, activity_id, start, end, request, session_id)
+        note = text_field(request, "note", 500, row["note"], True)
+        db.execute("UPDATE sessions SET activity_id = ?, started_at = ?, ended_at = ?, "
+                   "active_seconds = ?, note = ?, source = 'corrected', "
+                   "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                   (activity_id, start, end, duration, note, session_id))
+        if temporal_change:
+            db.execute("DELETE FROM work_segments WHERE session_id = ?", (session_id,))
+            db.execute("INSERT INTO work_segments VALUES (?, ?, ?, ?)",
+                       (session_id, start, end, duration * 1000))
+    return {"session_id": session_id}
+
+
+def delete_session(db, request):
+    session_id = text_field(request, "session_id", 36)
+    with db:
+        if db.execute("SELECT 1 FROM sessions WHERE id = ?", (session_id,)).fetchone() is None:
+            raise RequestError("not_found", "Session not found")
+        db.execute("DELETE FROM work_segments WHERE session_id = ?", (session_id,))
+        db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+    return {"session_id": session_id}
+
+
 COMMANDS = {
     "activities.list": list_activities,
     "activities.create": create_activity,
@@ -503,6 +607,9 @@ COMMANDS = {
     "timer.complete": timer_complete,
     "reports.day": day_summary,
     "sessions.recent": recent_sessions,
+    "sessions.add_manual": add_manual,
+    "sessions.edit": edit_session,
+    "sessions.delete": delete_session,
 }
 
 
