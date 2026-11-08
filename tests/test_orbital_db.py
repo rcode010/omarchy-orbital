@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
@@ -59,6 +60,21 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertEqual(self.call("activities.list")["selected_activity_id"], activity_id)
         with closing(orbital_db.connect(self.path)) as db:
             self.assertEqual(db.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0], 4)
+
+    def test_concurrent_activity_writes_preserve_all_rows(self):
+        self.call("activities.create", name="Initial")
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            ids = list(pool.map(lambda index: self.call("activities.create", name=f"Activity {index}")["activity_id"],
+                                range(24)))
+        self.assertEqual(len(set(ids)), 24)
+        self.assertEqual(len(self.call("activities.list")["activities"]), 25)
+
+    def test_corrupt_database_is_reported_without_replacement(self):
+        self.path.parent.mkdir(parents=True)
+        self.path.write_bytes(b"damaged Orbital database")
+        with self.assertRaises(sqlite3.DatabaseError):
+            self.call("activities.list")
+        self.assertEqual(self.path.read_bytes(), b"damaged Orbital database")
 
     def test_finish_early_saves_active_time_once(self):
         self.call("activities.create", name="Study")

@@ -52,12 +52,16 @@ def connect(path):
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(path.parent, 0o700)
     db = sqlite3.connect(path, timeout=5)
-    db.row_factory = sqlite3.Row
-    db.execute("PRAGMA foreign_keys = ON")
-    db.execute("PRAGMA busy_timeout = 5000")
-    db.execute("PRAGMA journal_mode = WAL")
-    os.chmod(path, 0o600)
-    migrate(db)
+    try:
+        db.row_factory = sqlite3.Row
+        db.execute("PRAGMA foreign_keys = ON")
+        db.execute("PRAGMA busy_timeout = 5000")
+        db.execute("PRAGMA journal_mode = WAL")
+        os.chmod(path, 0o600)
+        migrate(db)
+    except Exception:
+        db.close()
+        raise
     return db
 
 
