@@ -897,7 +897,12 @@ def utc_timestamp(value):
         raise RequestError("invalid_field", "Start time must be an ISO date and time") from None
     if parsed.tzinfo is None:
         raise RequestError("invalid_field", "Start time must include a time zone offset")
-    return parsed.astimezone(timezone.utc)
+    if not 2 <= parsed.year <= 9998:
+        raise RequestError("invalid_field", "Start year is out of range")
+    try:
+        return parsed.astimezone(timezone.utc)
+    except (ValueError, OverflowError):
+        raise RequestError("invalid_field", "Start time is outside supported range") from None
 
 
 def duration_field(value):

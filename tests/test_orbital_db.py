@@ -55,6 +55,14 @@ class ActivityStorageTests(unittest.TestCase):
                 orbital_db.run(request, self.path)
         self.assertEqual(len(self.call("activities.list")["activities"]), 1)
 
+    def test_out_of_range_manual_dates_return_request_errors(self):
+        activity_id = self.call("activities.create", name="Study")["activity_id"]
+        for started_at in ("0001-01-01T00:00:00+00:00", "9999-12-31T23:59:59+00:00"):
+            with self.assertRaises(orbital_db.RequestError) as error:
+                self.call("sessions.add_manual", activity_id=activity_id,
+                          started_at=started_at, active_seconds=60)
+            self.assertEqual(error.exception.code, "invalid_field")
+
     def test_restart_preserves_selection(self):
         activity_id = self.call("activities.create", name="Project")["activity_id"]
         self.assertEqual(self.call("activities.list")["selected_activity_id"], activity_id)
