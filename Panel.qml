@@ -65,7 +65,7 @@ Panel {
           spacing: Style.space(16)
 
           Repeater {
-            model: ["Home", "History"]
+            model: ["Home", "Insights", "History"]
 
             Text {
               required property string modelData
@@ -83,6 +83,7 @@ Panel {
                   root.page = modelData.toLowerCase()
                   scroll.contentY = 0
                   if (root.page === "history" && root.service) root.service.loadHistory(true)
+                  if (root.page === "insights" && root.service) root.service.loadInsights()
                 }
               }
             }
@@ -469,6 +470,11 @@ Panel {
 
         OrbitalUi.HistoryView {
           visible: root.page === "history"
+          service: root.service
+        }
+
+        OrbitalUi.InsightsView {
+          visible: root.page === "insights"
           service: root.service
         }
       }

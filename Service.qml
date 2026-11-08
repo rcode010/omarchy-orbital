@@ -19,6 +19,9 @@ QtObject {
   property var historySessions: []
   property var historyCursor: null
   property string historyFilterId: ""
+  property var insightsReport: null
+  property string insightsPeriod: "today"
+  property string insightsAnchor: ""
   property bool showArchived: false
   property string selectedActivityId: ""
   property string errorMessage: ""
@@ -104,6 +107,12 @@ QtObject {
     submit("sessions.list", request)
   }
 
+  function loadInsights() {
+    var request = { period: insightsPeriod }
+    if (insightsPeriod !== "today" && insightsAnchor) request.anchor = insightsAnchor
+    submit("reports.period", request)
+  }
+
   function handleResult(exitCode, output) {
     busy = false
     var parsed = null
@@ -129,6 +138,7 @@ QtObject {
         if (parsed.result.saved) {
           refreshReports()
           loadHistory(true)
+          if (insightsReport) loadInsights()
         }
       } else if (activeRequest.command === "reports.day") {
         today = parsed.result
@@ -142,9 +152,12 @@ QtObject {
         historySessions = activeRequest.before
           ? historySessions.concat(parsed.result.sessions) : parsed.result.sessions
         historyCursor = parsed.result.next_cursor
+      } else if (activeRequest.command === "reports.period") {
+        insightsReport = parsed.result
       } else if (activeRequest.command.indexOf("sessions.") === 0) {
         refreshReports()
         loadHistory(true)
+        if (insightsReport) loadInsights()
       } else {
         refresh()
         refreshReports()

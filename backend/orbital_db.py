@@ -566,7 +566,9 @@ def period_summary(db, request):
             trend.append({"key": key, "label": current.strftime("%a %d") if period == "week" else str(current.day),
                           "active_ms": daily.get(key, 0)})
             current += timedelta(days=1)
-    return {"period": period, "start_day": first_day.isoformat(), "end_day_exclusive": end_day.isoformat(),
+    return {"period": period, "start_day": first_day.isoformat(),
+            "end_day_inclusive": (end_day - timedelta(days=1)).isoformat(),
+            "end_day_exclusive": end_day.isoformat(),
             "previous_anchor": previous.isoformat(), "next_anchor": following.isoformat(),
             "total_ms": sum(item["active_ms"] for item in activities),
             "session_count": len(sessions), "activities": activities, "trend": trend}
