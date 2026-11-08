@@ -4,7 +4,7 @@ Orbital is a local activity timer for the built-in Omarchy bar. Create recurring
 
 Repository: https://github.com/rcode010/omarchy-orbital
 
-This repository is under active development. The current build provides activity creation, selection, renaming, color/icon edits, archiving, restoring, and safe deletion of unused activities. It also provides a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, durable SQLite sessions, saved Today totals by activity, recent sessions, and an Add Missed Time form. Full History browsing/editing, Insights, settings, and Pomodoro break flow are still in progress. Do not treat this build as a stable 1.0 release.
+This repository is under active development. The current build provides activity creation, selection, renaming, color/icon edits, archiving, restoring, and safe deletion of unused activities. It also provides a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, durable SQLite sessions, saved Today totals by activity, an Add Missed Time form, and paged History with correction and deletion. Insights, settings, and Pomodoro break flow are still in progress. Do not treat this build as a stable 1.0 release.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ Activity names are limited to 80 characters, and the current data protocol caps 
 
 Select an activity, then choose **Manage selected** to edit its name, icon, and color or archive it. Enable **Show archived** to restore an archived activity. Deletion requires a second click and is refused when the activity has saved history; archiving keeps that history intact.
 
-Add Missed Time accepts a local start date/time, a duration in whole minutes, and an optional note. Future spans are refused. Overlaps with previously saved time require the explicit **Allow overlap** choice. Manual entries do not change a running timer. The helper also supports editing and deleting entries; panel controls for those actions are still in progress.
+Add Missed Time accepts a local start date/time, a duration in whole minutes, and an optional note. Future spans are refused. Overlaps with previously saved time require the explicit **Allow overlap** choice. Manual entries do not change a running timer. History loads 20 entries at a time, can filter to the selected activity, and supports corrections and confirmed deletion. Correcting a measured session's start or duration replaces its original active segments with one corrected interval; the source is labeled `corrected`.
 
 ## Development checkout
 

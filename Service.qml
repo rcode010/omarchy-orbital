@@ -16,6 +16,9 @@ QtObject {
   property var today: ({ day: "", total_ms: 0, session_count: 0, activities: [] })
   property var todayByActivity: ({})
   property var recentSessions: []
+  property var historySessions: []
+  property var historyCursor: null
+  property string historyFilterId: ""
   property bool showArchived: false
   property string selectedActivityId: ""
   property string errorMessage: ""
@@ -90,6 +93,17 @@ QtObject {
     submit("sessions.recent", { limit: 8 })
   }
 
+  function loadHistory(reset) {
+    if (reset) {
+      historySessions = []
+      historyCursor = null
+    }
+    var request = { limit: 20 }
+    if (historyFilterId) request.activity_id = historyFilterId
+    if (!reset && historyCursor) request.before = historyCursor
+    submit("sessions.list", request)
+  }
+
   function handleResult(exitCode, output) {
     busy = false
     var parsed = null
@@ -112,7 +126,10 @@ QtObject {
         }
       } else if (activeRequest.command.indexOf("timer.") === 0) {
         applyTimer(parsed.result.timer || parsed.result)
-        if (parsed.result.saved) refreshReports()
+        if (parsed.result.saved) {
+          refreshReports()
+          loadHistory(true)
+        }
       } else if (activeRequest.command === "reports.day") {
         today = parsed.result
         var totals = {}
@@ -121,6 +138,13 @@ QtObject {
         todayByActivity = totals
       } else if (activeRequest.command === "sessions.recent") {
         recentSessions = parsed.result.sessions
+      } else if (activeRequest.command === "sessions.list") {
+        historySessions = activeRequest.before
+          ? historySessions.concat(parsed.result.sessions) : parsed.result.sessions
+        historyCursor = parsed.result.next_cursor
+      } else if (activeRequest.command.indexOf("sessions.") === 0) {
+        refreshReports()
+        loadHistory(true)
       } else {
         refresh()
         refreshReports()

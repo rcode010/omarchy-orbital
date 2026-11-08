@@ -12,6 +12,7 @@ Panel {
   property var anchorItem: null
   property var hostWidget: null
   property var service: null
+  property string page: "home"
   readonly property var barIdentity: hostWidget || root
   readonly property color foreground: bar ? bar.foreground : Commons.Color.foreground
 
@@ -59,6 +60,40 @@ Panel {
           font.pixelSize: Style.font.caption
           font.letterSpacing: 2
         }
+
+        Row {
+          spacing: Style.space(16)
+
+          Repeater {
+            model: ["Home", "History"]
+
+            Text {
+              required property string modelData
+              text: modelData
+              color: root.foreground
+              opacity: root.page === modelData.toLowerCase() ? 1 : 0.55
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+              font.weight: root.page === modelData.toLowerCase() ? Font.DemiBold : Font.Normal
+
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  root.page = modelData.toLowerCase()
+                  scroll.contentY = 0
+                  if (root.page === "history" && root.service) root.service.loadHistory(true)
+                }
+              }
+            }
+          }
+        }
+
+        Column {
+          id: home
+          visible: root.page === "home"
+          width: content.width
+          spacing: Style.space(12)
 
         Text {
           text: "Today"
@@ -429,6 +464,12 @@ Panel {
               font.pixelSize: Style.font.caption
             }
           }
+        }
+        }
+
+        OrbitalUi.HistoryView {
+          visible: root.page === "history"
+          service: root.service
         }
       }
       }
