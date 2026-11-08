@@ -9,6 +9,8 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import backup
+
 
 PLUGIN_ID = "io.github.rcode010.omarchy-orbital"
 MAX_REQUEST_BYTES = 16384
@@ -247,6 +249,20 @@ def settings_update(db, request):
                        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                        (key, json.dumps(value)))
     return settings_get(db, request)
+
+
+def restore_backup(db, request):
+    if timer_row(db)["phase"] != "idle":
+        raise RequestError("timer_active", "Finish or discard the timer before restoring data")
+    result = backup.restore(db, request.get("name"))
+    row = timer_row(db)
+    if row["phase"] in ("running", "break_running"):
+        paused = "paused" if row["phase"] == "running" else "break_paused"
+        with db:
+            db.execute("UPDATE timer_state SET phase = ?, segment_monotonic_ns = NULL, "
+                       "segment_started_at = NULL, updated_at = ? WHERE singleton = 1",
+                       (paused, utc_now()))
+    return result
 
 
 def utc_now():
@@ -871,6 +887,10 @@ COMMANDS = {
     "activities.delete": delete_activity,
     "settings.get": settings_get,
     "settings.update": settings_update,
+    "backup.create": lambda db, request: backup.create(db),
+    "backup.list": lambda db, request: backup.list_backups(db),
+    "backup.restore": restore_backup,
+    "backup.export_json": lambda db, request: backup.export_json(db),
     "timer.load": timer_load,
     "timer.start": timer_start,
     "timer.pause": timer_pause,
@@ -912,7 +932,7 @@ def main():
         except (UnicodeDecodeError, json.JSONDecodeError):
             raise RequestError("invalid_json", "Request is not valid JSON") from None
         result = {"ok": True, "result": run(request)}
-    except RequestError as error:
+    except (RequestError, backup.BackupError) as error:
         result = {"ok": False, "error": {"code": error.code, "message": str(error)}}
     except sqlite3.Error:
         result = {"ok": False, "error": {"code": "storage_error", "message": "Orbital could not access its data"}}

@@ -360,6 +360,42 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertEqual(second["timer"]["break_kind"], "long")
         self.assertEqual(second["timer"]["planned_seconds"], 900)
 
+    def test_backup_restores_data_and_keeps_previous_snapshot(self):
+        activity_id = self.call("activities.create", name="Original")["activity_id"]
+        self.call("sessions.add_manual", activity_id=activity_id,
+                  started_at="2026-11-07T10:00:00+00:00", active_seconds=600)
+        created = self.call("backup.create")
+        self.assertEqual(len(self.call("backup.list")["backups"]), 1)
+        self.call("activities.update", activity_id=activity_id, name="Changed")
+        restored = self.call("backup.restore", name=created["name"])
+        self.assertEqual(self.call("activities.list")["activities"][0]["name"], "Original")
+        self.assertEqual(len(self.call("sessions.recent")["sessions"]), 1)
+        self.assertTrue(restored["previous_backup"].startswith("orbital-pre-restore-"))
+        self.assertEqual(len(self.call("backup.list")["backups"]), 2)
+        backup_file = self.path.parent / "backups" / created["name"]
+        self.assertEqual(backup_file.stat().st_mode & 0o777, 0o600)
+
+    def test_invalid_backup_cannot_replace_live_data(self):
+        activity_id = self.call("activities.create", name="Keep me")["activity_id"]
+        name = self.call("backup.create")["name"]
+        backup_file = self.path.parent / "backups" / name
+        backup_file.write_bytes(b"not a database")
+        with self.assertRaises(orbital_db.backup.BackupError):
+            self.call("backup.restore", name=name)
+        self.assertEqual(self.call("activities.list")["activities"][0]["id"], activity_id)
+
+    def test_json_export_contains_real_history(self):
+        activity_id = self.call("activities.create", name="Reading")["activity_id"]
+        self.call("sessions.add_manual", activity_id=activity_id,
+                  started_at="2026-11-07T10:00:00+00:00", active_seconds=900)
+        exported = self.call("backup.export_json")
+        path = self.path.parent / "backups" / exported["name"]
+        content = json.loads(path.read_text())
+        self.assertEqual(content["format"], "orbital-json")
+        self.assertEqual(content["activities"][0]["name"], "Reading")
+        self.assertEqual(content["sessions"][0]["active_seconds"], 900)
+        self.assertEqual(len(content["work_segments"]), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
