@@ -91,6 +91,23 @@ class ActivityStorageTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0], 1)
             self.assertEqual(db.execute("SELECT active_seconds FROM sessions").fetchone()[0], 1020)
 
+    def test_failed_finish_rolls_back_timer_and_segments(self):
+        self.call("activities.create", name="Study")
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db.time, "monotonic_ns", side_effect=[0, 60 * 1_000_000_000]
+        ):
+            self.call("timer.start", mode="stopwatch")
+            with closing(orbital_db.connect(self.path)) as db:
+                with db:
+                    db.execute("CREATE TRIGGER reject_session BEFORE INSERT ON sessions "
+                               "BEGIN SELECT RAISE(ABORT, 'write blocked'); END")
+            with self.assertRaises(sqlite3.IntegrityError):
+                self.call("timer.finish")
+        with closing(orbital_db.connect(self.path)) as db:
+            self.assertEqual(db.execute("SELECT phase FROM timer_state").fetchone()[0], "running")
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0], 0)
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM work_segments").fetchone()[0], 0)
+
     def test_pause_excludes_time_and_discard_saves_nothing(self):
         self.call("activities.create", name="Project")
         seconds = [0, 600, 1800, 2400, 3000]
