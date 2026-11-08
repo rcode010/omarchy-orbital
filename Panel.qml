@@ -63,12 +63,105 @@ Panel {
           width: parent.width
           wrapMode: Text.WordWrap
           text: root.service && root.service.activities.length
-            ? "Choose the activity you want to track."
+            ? "Select an activity, then begin a focus session or stopwatch."
             : "Create an activity to begin your Orbital history."
           color: root.foreground
           opacity: 0.72
           font.family: Style.font.family
           font.pixelSize: Style.font.body
+        }
+
+        Row {
+          visible: root.service && root.service.activities.length > 0
+          spacing: Style.space(12)
+
+          Repeater {
+            model: ["focus", "stopwatch"]
+
+            Text {
+              required property string modelData
+              text: modelData === "focus" ? "Focus" : "Stopwatch"
+              color: root.foreground
+              opacity: root.service && root.service.mode === modelData ? 1 : 0.5
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+              font.weight: root.service && root.service.mode === modelData ? Font.DemiBold : Font.Normal
+
+              MouseArea {
+                anchors.fill: parent
+                enabled: root.service && root.service.phase === "idle"
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.service.mode = modelData
+              }
+            }
+          }
+        }
+
+        Text {
+          visible: root.service && root.service.activities.length > 0
+          text: root.service ? root.service.formatTime(root.service.mode === "focus"
+            ? Math.max(0, root.service.plannedSeconds - root.service.elapsedSeconds)
+            : root.service.elapsedSeconds) : "25:00"
+          color: root.foreground
+          font.family: Style.font.family
+          font.pixelSize: Style.space(42)
+          font.weight: Font.DemiBold
+        }
+
+        Text {
+          visible: root.service && root.service.phase !== "idle"
+          text: root.service && root.service.phase === "paused" ? "Paused · active time saved" : "Tracking active time"
+          color: root.foreground
+          opacity: 0.65
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+
+        Row {
+          visible: root.service && root.service.activities.length > 0
+          spacing: Style.space(8)
+
+          Repeater {
+            model: root.service && root.service.phase === "idle"
+              ? ["Start"]
+              : root.service && root.service.phase === "paused"
+                ? ["Resume", root.service.mode === "focus" ? "Finish Early" : "Finish", "Discard"]
+                : ["Pause", root.service && root.service.mode === "focus" ? "Finish Early" : "Finish", "Discard"]
+
+            Rectangle {
+              required property string modelData
+              width: label.implicitWidth + Style.space(20)
+              height: Style.space(38)
+              radius: Style.space(8)
+              color: modelData === "Discard" ? "transparent" : Commons.Color.accent
+              border.color: root.foreground
+              border.width: modelData === "Discard" ? 1 : 0
+
+              Text {
+                id: label
+                anchors.centerIn: parent
+                text: modelData
+                color: modelData === "Discard" ? root.foreground : Commons.Color.background
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+                font.weight: Font.DemiBold
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                enabled: root.service && !root.service.busy
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                  if (modelData === "Start")
+                    root.service.submit("timer.start", { mode: root.service.mode, planned_seconds: root.service.plannedSeconds })
+                  else if (modelData === "Pause") root.service.submit("timer.pause", {})
+                  else if (modelData === "Resume") root.service.submit("timer.resume", {})
+                  else if (modelData === "Discard") root.service.submit("timer.discard", {})
+                  else root.service.submit("timer.finish", {})
+                }
+              }
+            }
+          }
         }
 
         Text {

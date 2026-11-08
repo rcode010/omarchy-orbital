@@ -5,8 +5,12 @@ QtObject {
   id: root
 
   property string phase: "idle"
+  property string mode: "focus"
   property string activityName: ""
   property int elapsedSeconds: 0
+  property double activeMs: 0
+  property int plannedSeconds: 1500
+  property double displayStartedAt: 0
   property var activities: []
   property string selectedActivityId: ""
   property string errorMessage: ""
@@ -19,7 +23,27 @@ QtObject {
 
   readonly property string barLabel: phase === "idle"
     ? (activityName ? "Orbital · " + activityName : "Orbital · Ready")
-    : activityName + " · " + Math.floor(elapsedSeconds / 60) + "m"
+    : activityName + " · " + formatTime(mode === "focus" ? Math.max(0, plannedSeconds - elapsedSeconds) : elapsedSeconds)
+
+  function formatTime(seconds) {
+    var minutes = Math.floor(seconds / 60)
+    var remainder = seconds % 60
+    return minutes + ":" + (remainder < 10 ? "0" : "") + remainder
+  }
+
+  function applyTimer(timer) {
+    phase = timer.phase
+    mode = timer.mode
+    activeMs = timer.active_ms
+    plannedSeconds = timer.planned_seconds
+    displayStartedAt = Date.now()
+    updateDisplay()
+  }
+
+  function updateDisplay() {
+    var displayMs = activeMs + (phase === "running" ? Math.max(0, Date.now() - displayStartedAt) : 0)
+    elapsedSeconds = Math.floor(displayMs / 1000)
+  }
 
   function submit(command, values) {
     var request = values || {}
@@ -58,6 +82,8 @@ QtObject {
         for (var i = 0; i < activities.length; i++) {
           if (activities[i].id === selectedActivityId) activityName = activities[i].name
         }
+      } else if (activeRequest.command.indexOf("timer.") === 0) {
+        applyTimer(parsed.result.timer || parsed.result)
       } else {
         refresh()
       }
@@ -76,5 +102,22 @@ QtObject {
     }
   }
 
-  Component.onCompleted: refresh()
+  property Timer displayTick: Timer {
+    interval: 1000
+    repeat: true
+    running: root.phase === "running"
+    onTriggered: root.updateDisplay()
+  }
+
+  property Timer checkpointTick: Timer {
+    interval: 60000
+    repeat: true
+    running: root.phase === "running"
+    onTriggered: root.submit("timer.checkpoint", {})
+  }
+
+  Component.onCompleted: {
+    refresh()
+    submit("timer.load", {})
+  }
 }

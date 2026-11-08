@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from contextlib import closing
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,7 +56,61 @@ class ActivityStorageTests(unittest.TestCase):
         activity_id = self.call("activities.create", name="Project")["activity_id"]
         self.assertEqual(self.call("activities.list")["selected_activity_id"], activity_id)
         with closing(orbital_db.connect(self.path)) as db:
-            self.assertEqual(db.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0], 2)
+
+    def test_finish_early_saves_active_time_once(self):
+        self.call("activities.create", name="Study")
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db.time, "monotonic_ns", side_effect=[0, 17 * 60 * 1_000_000_000, 17 * 60 * 1_000_000_000]
+        ):
+            self.call("timer.start", mode="focus", planned_seconds=1500)
+            finished = self.call("timer.finish")
+            repeated = self.call("timer.finish")
+        self.assertEqual(finished["active_seconds"], 1020)
+        self.assertTrue(finished["saved"])
+        self.assertFalse(repeated["saved"])
+        with closing(orbital_db.connect(self.path)) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT active_seconds FROM sessions").fetchone()[0], 1020)
+
+    def test_pause_excludes_time_and_discard_saves_nothing(self):
+        self.call("activities.create", name="Project")
+        seconds = [0, 600, 1800, 2400, 3000]
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db.time, "monotonic_ns", side_effect=[value * 1_000_000_000 for value in seconds]
+        ):
+            self.call("timer.start", mode="stopwatch")
+            self.call("timer.pause")
+            self.call("timer.resume")
+            finished = self.call("timer.finish")
+            self.call("timer.start", mode="focus")
+        self.assertEqual(finished["active_seconds"], 1200)
+        with patch.object(orbital_db.time, "monotonic_ns", return_value=3100 * 1_000_000_000):
+            self.call("timer.discard")
+        with closing(orbital_db.connect(self.path)) as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM sessions").fetchone()[0], 1)
+
+    def test_load_pauses_without_inventing_downtime(self):
+        self.call("activities.create", name="Reading")
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db.time, "monotonic_ns", return_value=1000
+        ):
+            self.call("timer.start", mode="focus")
+        recovered = self.call("timer.load")
+        self.assertEqual(recovered["phase"], "paused")
+        self.assertEqual(recovered["active_ms"], 0)
+
+    def test_checkpoint_survives_reload_without_counting_unknown_time(self):
+        self.call("activities.create", name="Writing")
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db.time, "monotonic_ns", side_effect=[0, 60 * 1_000_000_000]
+        ):
+            self.call("timer.start", mode="focus")
+            checkpoint = self.call("timer.checkpoint")
+        self.assertEqual(checkpoint["active_ms"], 60000)
+        recovered = self.call("timer.load")
+        self.assertEqual(recovered["phase"], "paused")
+        self.assertEqual(recovered["active_ms"], 60000)
 
     def test_cli_bounds_and_malformed_json(self):
         env = {**os.environ, "XDG_DATA_HOME": self.temp.name}

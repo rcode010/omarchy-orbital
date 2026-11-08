@@ -2,8 +2,10 @@ import json
 import os
 import sqlite3
 import sys
+import time
 import uuid
 from contextlib import closing
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -40,7 +42,7 @@ def migrate(db):
     with db:
         db.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY)")
         version = db.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").fetchone()[0]
-        if version > 1:
+        if version > 2:
             raise RequestError("unsupported_schema", "Orbital data requires a newer version")
         if version == 0:
             db.executescript("""
@@ -73,6 +75,12 @@ def migrate(db):
                 CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
                 INSERT INTO schema_migrations (version) VALUES (1);
             """)
+        if version < 2:
+            db.execute("ALTER TABLE timer_state ADD COLUMN active_ms INTEGER NOT NULL DEFAULT 0")
+            db.execute("ALTER TABLE timer_state ADD COLUMN segment_monotonic_ns INTEGER")
+            db.execute("ALTER TABLE timer_state ADD COLUMN boot_id TEXT")
+            db.execute("ALTER TABLE timer_state ADD COLUMN work_started_at TEXT")
+            db.execute("INSERT INTO schema_migrations (version) VALUES (2)")
 
 
 def text_field(request, field, limit, default=None, optional=False):
@@ -159,6 +167,137 @@ def select_activity(db, request):
     return {"selected_activity_id": activity_id}
 
 
+def utc_now():
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+
+
+def boot_id():
+    return Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+
+
+def timer_row(db):
+    return db.execute("SELECT * FROM timer_state WHERE singleton = 1").fetchone()
+
+
+def elapsed_ms(row, now_ns, current_boot):
+    if row["phase"] != "running" or row["boot_id"] != current_boot:
+        return row["active_ms"]
+    segment_ns = row["segment_monotonic_ns"]
+    if segment_ns is None or segment_ns > now_ns:
+        return row["active_ms"]
+    return row["active_ms"] + (now_ns - segment_ns) // 1_000_000
+
+
+def timer_load(db, request):
+    with db:
+        row = timer_row(db)
+        if row["phase"] == "running":
+            db.execute("UPDATE timer_state SET phase = 'paused', segment_monotonic_ns = NULL, "
+                       "updated_at = ? WHERE singleton = 1", (utc_now(),))
+            row = timer_row(db)
+    return timer_view(row)
+
+
+def timer_view(row):
+    return {key: row[key] for key in (
+        "selected_activity_id", "mode", "phase", "active_ms", "planned_seconds", "session_id"
+    )}
+
+
+def timer_start(db, request):
+    mode = request.get("mode")
+    if mode not in ("focus", "stopwatch"):
+        raise RequestError("invalid_field", "Mode must be focus or stopwatch")
+    planned = request.get("planned_seconds", 1500)
+    if isinstance(planned, bool) or not isinstance(planned, int) or not 60 <= planned <= 14400:
+        raise RequestError("invalid_field", "Focus duration must be 1 to 240 minutes")
+    now_ns = time.monotonic_ns()
+    current_boot = boot_id()
+    now = utc_now()
+    with db:
+        row = timer_row(db)
+        if row["phase"] != "idle":
+            raise RequestError("timer_active", "Finish or discard the current session first")
+        if not row["selected_activity_id"]:
+            raise RequestError("no_activity", "Select an activity first")
+        activity = db.execute("SELECT 1 FROM activities WHERE id = ? AND archived_at IS NULL",
+                              (row["selected_activity_id"],)).fetchone()
+        if activity is None:
+            raise RequestError("no_activity", "Select an active activity first")
+        db.execute("UPDATE timer_state SET mode = ?, phase = 'running', active_ms = 0, "
+                   "active_seconds = 0, segment_monotonic_ns = ?, boot_id = ?, "
+                   "work_started_at = ?, session_id = ?, planned_seconds = ?, updated_at = ? "
+                   "WHERE singleton = 1", (mode, now_ns, current_boot, now, str(uuid.uuid4()), planned, now))
+        return timer_view(timer_row(db))
+
+
+def timer_pause(db, request):
+    now_ns = time.monotonic_ns()
+    current_boot = boot_id()
+    with db:
+        row = timer_row(db)
+        if row["phase"] != "running":
+            raise RequestError("invalid_state", "Timer is not running")
+        total = elapsed_ms(row, now_ns, current_boot)
+        db.execute("UPDATE timer_state SET phase = 'paused', active_ms = ?, "
+                   "segment_monotonic_ns = NULL, updated_at = ? WHERE singleton = 1",
+                   (total, utc_now()))
+        return timer_view(timer_row(db))
+
+
+def timer_resume(db, request):
+    with db:
+        row = timer_row(db)
+        if row["phase"] != "paused":
+            raise RequestError("invalid_state", "Timer is not paused")
+        db.execute("UPDATE timer_state SET phase = 'running', segment_monotonic_ns = ?, "
+                   "boot_id = ?, updated_at = ? WHERE singleton = 1",
+                   (time.monotonic_ns(), boot_id(), utc_now()))
+        return timer_view(timer_row(db))
+
+
+def timer_checkpoint(db, request):
+    now_ns = time.monotonic_ns()
+    current_boot = boot_id()
+    with db:
+        row = timer_row(db)
+        if row["phase"] != "running":
+            return timer_view(row)
+        if row["boot_id"] != current_boot:
+            db.execute("UPDATE timer_state SET phase = 'paused', segment_monotonic_ns = NULL, "
+                       "updated_at = ? WHERE singleton = 1", (utc_now(),))
+        else:
+            total = elapsed_ms(row, now_ns, current_boot)
+            db.execute("UPDATE timer_state SET active_ms = ?, segment_monotonic_ns = ?, "
+                       "updated_at = ? WHERE singleton = 1", (total, now_ns, utc_now()))
+        return timer_view(timer_row(db))
+
+
+def timer_stop(db, request, save):
+    now_ns = time.monotonic_ns()
+    current_boot = boot_id()
+    now = utc_now()
+    with db:
+        row = timer_row(db)
+        if row["phase"] == "idle":
+            return {"saved": False, "active_seconds": 0, "timer": timer_view(row)}
+        if row["phase"] not in ("running", "paused"):
+            raise RequestError("invalid_state", "Timer cannot be stopped")
+        total = elapsed_ms(row, now_ns, current_boot)
+        seconds = total // 1000
+        if save and seconds > 0:
+            db.execute("INSERT INTO sessions (id, activity_id, mode, source, started_at, ended_at, "
+                       "active_seconds, reason) VALUES (?, ?, ?, 'measured', ?, ?, ?, ?)",
+                       (row["session_id"], row["selected_activity_id"], row["mode"],
+                        row["work_started_at"], now, seconds,
+                        "finish_early" if row["mode"] == "focus" else "finish"))
+        db.execute("UPDATE timer_state SET phase = 'idle', active_ms = 0, active_seconds = 0, "
+                   "segment_monotonic_ns = NULL, boot_id = NULL, work_started_at = NULL, "
+                   "session_id = NULL, updated_at = ? WHERE singleton = 1", (now,))
+        return {"saved": bool(save and seconds > 0), "active_seconds": seconds if save else 0,
+                "timer": timer_view(timer_row(db))}
+
+
 COMMANDS = {
     "activities.list": list_activities,
     "activities.create": create_activity,
@@ -166,6 +305,13 @@ COMMANDS = {
     "activities.archive": lambda db, request: archive_activity(db, request, True),
     "activities.restore": lambda db, request: archive_activity(db, request, False),
     "activities.select": select_activity,
+    "timer.load": timer_load,
+    "timer.start": timer_start,
+    "timer.pause": timer_pause,
+    "timer.resume": timer_resume,
+    "timer.checkpoint": timer_checkpoint,
+    "timer.finish": lambda db, request: timer_stop(db, request, True),
+    "timer.discard": lambda db, request: timer_stop(db, request, False),
 }
 
 
