@@ -6,6 +6,7 @@ QtObject {
   signal requestFinished(string command, bool success, string code)
 
   property string phase: "idle"
+  property string breakKind: ""
   property string mode: "focus"
   property string activityName: ""
   property int elapsedSeconds: 0
@@ -39,7 +40,13 @@ QtObject {
 
   readonly property string barLabel: phase === "idle"
     ? (activityName ? "Orbital · " + activityName : "Orbital · Ready")
-    : activityName + " · " + formatTime(mode === "focus" ? Math.max(0, plannedSeconds - elapsedSeconds) : elapsedSeconds)
+    : phase.indexOf("break") === 0
+      ? (phase === "break_ready" ? "Orbital · Break ready"
+         : "Orbital · Break " + formatTime(Math.max(0, plannedSeconds - elapsedSeconds))
+           + (phase === "break_paused" ? " · Paused" : ""))
+      : activityName + " · " + formatTime(mode === "focus"
+          ? Math.max(0, plannedSeconds - elapsedSeconds) : elapsedSeconds)
+          + (phase === "paused" ? " · Paused" : "")
 
   function formatTime(seconds) {
     var minutes = Math.floor(seconds / 60)
@@ -58,20 +65,22 @@ QtObject {
 
   function applyTimer(timer) {
     phase = timer.phase
+    breakKind = timer.break_kind || ""
     mode = timer.mode
     activeMs = timer.active_ms
     plannedSeconds = timer.planned_seconds
     displayStartedAt = Date.now()
     updateDisplay()
     completionTick.stop()
-    if (phase === "running" && mode === "focus") {
+    if ((phase === "running" && mode === "focus") || phase === "break_running") {
       completionTick.interval = Math.max(1000, plannedSeconds * 1000 - activeMs)
       completionTick.start()
     }
   }
 
   function updateDisplay() {
-    var displayMs = activeMs + (phase === "running" ? Math.max(0, Date.now() - displayStartedAt) : 0)
+    var active = phase === "running" || phase === "break_running"
+    var displayMs = activeMs + (active ? Math.max(0, Date.now() - displayStartedAt) : 0)
     elapsedSeconds = Math.floor(displayMs / 1000)
   }
 
@@ -188,20 +197,21 @@ QtObject {
   property Timer displayTick: Timer {
     interval: 1000
     repeat: true
-    running: root.phase === "running"
+    running: root.phase === "running" || root.phase === "break_running"
     onTriggered: root.updateDisplay()
   }
 
   property Timer checkpointTick: Timer {
     interval: 60000
     repeat: true
-    running: root.phase === "running"
+    running: root.phase === "running" || root.phase === "break_running"
     onTriggered: root.submit("timer.checkpoint", {})
   }
 
   property Timer completionTick: Timer {
     repeat: false
-    onTriggered: root.submit("timer.complete", {})
+    onTriggered: root.submit(root.phase === "break_running"
+      ? "timer.complete_break" : "timer.complete", {})
   }
 
   property Timer calendarTick: Timer {

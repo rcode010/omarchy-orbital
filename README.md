@@ -4,7 +4,7 @@ Orbital is a local activity timer for the built-in Omarchy bar. Create recurring
 
 Repository: https://github.com/rcode010/omarchy-orbital
 
-This repository is under active development. The current build provides activity creation, selection, renaming, color/icon edits, archiving, restoring, and safe deletion of unused activities. It also provides a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, durable SQLite sessions, saved Today totals by activity, an Add Missed Time form, paged History with correction and deletion, and Today/Day/Week/Month/Year Insights. Settings and Pomodoro break flow are still in progress. Do not treat this build as a stable 1.0 release.
+This repository is under active development. The current build provides activity creation, selection, renaming, color/icon edits, archiving, restoring, and safe deletion of unused activities. It also provides a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, short/long breaks, durable SQLite sessions, saved Today totals by activity, an Add Missed Time form, paged History with correction and deletion, and Today/Day/Week/Month/Year Insights. Timer and break preferences are available in Settings. Notifications, idle detection, data backup/restore, and full accessibility work are still in progress. Do not treat this build as a stable 1.0 release.
 
 ## Requirements
 
@@ -36,6 +36,8 @@ No package installation, network service, account, or telemetry is required by O
 Orbital stores `orbital.sqlite3` under `$XDG_DATA_HOME/io.github.rcode010.omarchy-orbital/`, or `~/.local/share/io.github.rcode010.omarchy-orbital/` when `XDG_DATA_HOME` is unset. The directory and database are restricted to the user. Normal plugin removal does not delete this directory.
 
 The timer uses Linux monotonic time for measured active intervals. A restart or crash pauses the session at its last verified checkpoint, normally up to a minute earlier while continuously running, and potentially earlier if a checkpoint failed. This conservative recovery avoids counting unverified downtime. The current session can then be resumed, finished, or discarded. Paused time and system suspend do not advance measured active time.
+
+The default cycle is 25 minutes of focus, then a 5-minute short break, with a 15-minute long break after four naturally completed focus sessions. Settings can change those values and independently enable automatic start of breaks and of the next focus session. Break time never enters activity totals. Finish Early skips the break and returns to idle without automatic transitions. A break can be started, paused, resumed, or skipped from the panel. Changes to a running countdown apply to later sessions.
 
 The stored session rows include UTC start/end times and active seconds. New measured sessions also store their active work segments. Today totals split those segments at local midnight using the system time zone, including daylight-saving changes, and exclude pauses. Sessions saved by older development builds have no segments; their daily attribution is estimated proportionally across the recorded start/end interval. If the system clock changes substantially during a segment, Orbital anchors that segment to its start time and measured monotonic duration to avoid allocating phantom hours.
 

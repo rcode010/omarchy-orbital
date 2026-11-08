@@ -65,7 +65,7 @@ Panel {
           spacing: Style.space(16)
 
           Repeater {
-            model: ["Home", "Insights", "History"]
+            model: ["Home", "Insights", "History", "Settings"]
 
             Text {
               required property string modelData
@@ -117,7 +117,7 @@ Panel {
         }
 
         Row {
-          visible: root.service && root.service.activities.length > 0
+          visible: root.service && root.service.activities.length > 0 && root.service.phase === "idle"
           spacing: Style.space(12)
 
           Repeater {
@@ -165,7 +165,10 @@ Panel {
 
         Text {
           visible: root.service && root.service.activities.length > 0
-          text: root.service ? root.service.formatTime(root.service.mode === "focus"
+          text: root.service ? root.service.formatTime(
+            root.service.phase.indexOf("break") === 0
+              ? Math.max(0, root.service.plannedSeconds - root.service.elapsedSeconds)
+              : root.service.mode === "focus"
             ? Math.max(0, root.service.plannedSeconds - root.service.elapsedSeconds)
             : root.service.elapsedSeconds) : "25:00"
           color: root.foreground
@@ -176,7 +179,12 @@ Panel {
 
         Text {
           visible: root.service && root.service.phase !== "idle"
-          text: root.service && root.service.phase === "paused" ? "Paused · active time saved" : "Tracking active time"
+          text: root.service
+            ? (root.service.phase === "paused" ? "Paused · active time saved"
+               : root.service.phase === "break_ready" ? "Ready for a " + root.service.breakKind + " break"
+               : root.service.phase === "break_paused" ? root.service.breakKind + " break paused"
+               : root.service.phase === "break_running" ? root.service.breakKind + " break · no work time counted"
+               : "Tracking active time") : ""
           color: root.foreground
           opacity: 0.65
           font.family: Style.font.family
@@ -190,6 +198,12 @@ Panel {
           Repeater {
             model: root.service && root.service.phase === "idle"
               ? ["Start"]
+              : root.service && root.service.phase === "break_ready"
+                ? ["Start Break", "Skip Break"]
+              : root.service && root.service.phase === "break_paused"
+                ? ["Resume Break", "Skip Break"]
+              : root.service && root.service.phase === "break_running"
+                ? ["Pause Break", "Skip Break"]
               : root.service && root.service.phase === "paused"
                 ? ["Resume", root.service.mode === "focus" ? "Finish Early" : "Finish", "Discard"]
                 : ["Pause", root.service && root.service.mode === "focus" ? "Finish Early" : "Finish", "Discard"]
@@ -199,15 +213,17 @@ Panel {
               width: label.implicitWidth + Style.space(20)
               height: Style.space(38)
               radius: Style.space(8)
-              color: modelData === "Discard" ? "transparent" : Commons.Color.accent
+              color: modelData === "Discard" || modelData === "Skip Break"
+                ? "transparent" : Commons.Color.accent
               border.color: root.foreground
-              border.width: modelData === "Discard" ? 1 : 0
+              border.width: modelData === "Discard" || modelData === "Skip Break" ? 1 : 0
 
               Text {
                 id: label
                 anchors.centerIn: parent
                 text: modelData
-                color: modelData === "Discard" ? root.foreground : Commons.Color.background
+                color: modelData === "Discard" || modelData === "Skip Break"
+                  ? root.foreground : Commons.Color.background
                 font.family: Style.font.family
                 font.pixelSize: Style.font.body
                 font.weight: Font.DemiBold
@@ -223,6 +239,10 @@ Panel {
                   else if (modelData === "Pause") root.service.submit("timer.pause", {})
                   else if (modelData === "Resume") root.service.submit("timer.resume", {})
                   else if (modelData === "Discard") root.service.submit("timer.discard", {})
+                  else if (modelData === "Start Break") root.service.submit("timer.start_break", {})
+                  else if (modelData === "Pause Break") root.service.submit("timer.pause", {})
+                  else if (modelData === "Resume Break") root.service.submit("timer.resume", {})
+                  else if (modelData === "Skip Break") root.service.submit("timer.skip_break", {})
                   else root.service.submit("timer.finish", {})
                 }
               }
@@ -294,7 +314,7 @@ Panel {
 
             MouseArea {
               anchors.fill: parent
-              enabled: root.service !== null
+              enabled: root.service && (modelData.archived_at || root.service.phase === "idle")
               cursorShape: Qt.PointingHandCursor
               onClicked: {
                 if (modelData.archived_at) root.beginEdit(modelData)
@@ -475,6 +495,11 @@ Panel {
 
         OrbitalUi.InsightsView {
           visible: root.page === "insights"
+          service: root.service
+        }
+
+        OrbitalUi.SettingsView {
+          visible: root.page === "settings"
           service: root.service
         }
       }
