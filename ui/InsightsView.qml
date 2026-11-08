@@ -238,10 +238,15 @@ Column {
     font.letterSpacing: 1.5
   }
 
-  Repeater {
+  ListView {
+    width: root.width
+    height: Math.min(contentHeight, Style.space(250))
+    clip: true
+    spacing: Style.space(8)
+    boundsBehavior: Flickable.StopAtBounds
     model: root.report ? root.report.activities : []
 
-    Column {
+    delegate: Column {
       required property var modelData
       width: root.width
       spacing: Style.space(4)
