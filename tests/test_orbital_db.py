@@ -1,5 +1,6 @@
 import os
 import json
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -383,6 +384,19 @@ class ActivityStorageTests(unittest.TestCase):
         with self.assertRaises(orbital_db.backup.BackupError):
             self.call("backup.restore", name=name)
         self.assertEqual(self.call("activities.list")["activities"][0]["id"], activity_id)
+
+    def test_backup_with_invalid_settings_cannot_replace_live_data(self):
+        activity_id = self.call("activities.create", name="Keep me")["activity_id"]
+        name = self.call("backup.create")["name"]
+        backup_file = self.path.parent / "backups" / name
+        with closing(sqlite3.connect(backup_file)) as source:
+            with source:
+                source.execute("INSERT INTO settings (key, value) VALUES ('focus_minutes', '99999')")
+        with self.assertRaises(orbital_db.RequestError) as error:
+            self.call("backup.restore", name=name)
+        self.assertEqual(error.exception.code, "invalid_settings")
+        self.assertEqual(self.call("activities.list")["activities"][0]["id"], activity_id)
+        self.assertEqual(len(self.call("backup.list")["backups"]), 1)
 
     def test_json_export_contains_real_history(self):
         activity_id = self.call("activities.create", name="Reading")["activity_id"]

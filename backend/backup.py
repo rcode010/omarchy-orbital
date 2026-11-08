@@ -101,7 +101,7 @@ def validate_source(source):
         raise BackupError("invalid_backup", "Backup contains invalid references")
 
 
-def restore(db, name):
+def restore(db, name, validate=None):
     if not isinstance(name, str) or not BACKUP_NAME.fullmatch(name):
         raise BackupError("invalid_backup", "Choose a listed Orbital backup")
     path = backup_dir(db) / name
@@ -109,9 +109,12 @@ def restore(db, name):
         raise BackupError("invalid_backup", "Backup file is missing or unsafe")
     uri = "file:" + quote(str(path)) + "?mode=ro"
     with closing(sqlite3.connect(uri, uri=True, timeout=5)) as source:
+        source.row_factory = sqlite3.Row
         source.execute("PRAGMA foreign_keys = ON")
         try:
             validate_source(source)
+            if validate:
+                validate(source)
         except sqlite3.Error:
             raise BackupError("invalid_backup", "Backup cannot be read") from None
         prior = create(db, "orbital-pre-restore")

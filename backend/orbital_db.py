@@ -27,6 +27,11 @@ DEFAULT_SETTINGS = {
     "pause_on_idle": True,
     "idle_minutes": 5,
 }
+SETTING_LIMITS = {
+    "focus_minutes": (1, 240), "short_break_minutes": (1, 120),
+    "long_break_minutes": (1, 120), "long_break_every": (2, 12),
+    "idle_minutes": (1, 30),
+}
 
 
 class RequestError(Exception):
@@ -222,30 +227,31 @@ def settings_get(db, request):
     for row in db.execute("SELECT key, value FROM settings"):
         if row["key"] in result:
             try:
-                result[row["key"]] = json.loads(row["value"])
+                value = json.loads(row["value"])
             except json.JSONDecodeError:
                 raise RequestError("invalid_settings", "Stored settings are invalid") from None
+            if not valid_setting(row["key"], value):
+                raise RequestError("invalid_settings", "Stored settings are out of range")
+            result[row["key"]] = value
     return {"settings": result}
+
+
+def valid_setting(key, value):
+    if key in SETTING_LIMITS:
+        low, high = SETTING_LIMITS[key]
+        return isinstance(value, int) and not isinstance(value, bool) and low <= value <= high
+    return isinstance(value, bool)
 
 
 def settings_update(db, request):
     changes = request.get("settings")
     if not isinstance(changes, dict) or not changes:
         raise RequestError("invalid_field", "Settings must be a non-empty object")
-    limits = {
-        "focus_minutes": (1, 240), "short_break_minutes": (1, 120),
-        "long_break_minutes": (1, 120), "long_break_every": (2, 12),
-        "idle_minutes": (1, 30),
-    }
     for key, value in changes.items():
         if key not in DEFAULT_SETTINGS:
             raise RequestError("invalid_field", f"Unknown setting: {key}")
-        if key in limits:
-            low, high = limits[key]
-            if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
-                raise RequestError("invalid_field", f"{key} must be {low} to {high}")
-        elif not isinstance(value, bool):
-            raise RequestError("invalid_field", f"{key} must be a boolean")
+        if not valid_setting(key, value):
+            raise RequestError("invalid_field", f"Invalid value for {key}")
     with db:
         for key, value in changes.items():
             db.execute("INSERT INTO settings (key, value) VALUES (?, ?) "
@@ -257,7 +263,7 @@ def settings_update(db, request):
 def restore_backup(db, request):
     if timer_row(db)["phase"] != "idle":
         raise RequestError("timer_active", "Finish or discard the timer before restoring data")
-    result = backup.restore(db, request.get("name"))
+    result = backup.restore(db, request.get("name"), lambda source: settings_get(source, request))
     row = timer_row(db)
     if row["phase"] in ("running", "break_running"):
         paused = "paused" if row["phase"] == "running" else "break_paused"
