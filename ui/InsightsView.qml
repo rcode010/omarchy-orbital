@@ -49,20 +49,12 @@ Column {
     Repeater {
       model: ["today", "day", "week", "month", "year"]
 
-      Text {
+      ActionText {
         required property string modelData
         text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
-        color: Commons.Color.accent
         opacity: root.service && root.service.insightsPeriod === modelData ? 1 : 0.55
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
         font.weight: root.service && root.service.insightsPeriod === modelData ? Font.DemiBold : Font.Normal
-
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.changePeriod(modelData)
-        }
+        onActivated: root.changePeriod(modelData)
       }
     }
   }
@@ -71,17 +63,10 @@ Column {
     width: root.width
     spacing: Style.space(12)
 
-    Text {
+    ActionText {
       text: "‹"
-      color: Commons.Color.accent
-      font.family: Style.font.family
       font.pixelSize: Style.font.title
-
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.movePeriod(-1)
-      }
+      onActivated: root.movePeriod(-1)
     }
 
     Text {
@@ -97,17 +82,10 @@ Column {
       font.pixelSize: Style.font.body
     }
 
-    Text {
+    ActionText {
       text: "›"
-      color: Commons.Color.accent
-      font.family: Style.font.family
       font.pixelSize: Style.font.title
-
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.movePeriod(1)
-      }
+      onActivated: root.movePeriod(1)
     }
   }
 
@@ -154,6 +132,9 @@ Column {
           required property int index
           width: (chart.width - (root.report.trend.length - 1) * Style.space(2)) / root.report.trend.length
           height: chart.height
+          activeFocusOnTab: true
+          Keys.onReturnPressed: root.hoveredIndex = index
+          Keys.onSpacePressed: root.hoveredIndex = index
 
           Rectangle {
             anchors.bottom: parent.bottom
@@ -161,7 +142,7 @@ Column {
             height: root.peakMs > 0 ? parent.height * modelData.active_ms / root.peakMs : 0
             radius: Math.min(Style.space(4), width / 2)
             color: Commons.Color.accent
-            opacity: root.hoveredIndex === index ? 1 : 0.72
+            opacity: root.hoveredIndex === index || parent.activeFocus ? 1 : 0.72
           }
 
           MouseArea {
@@ -169,6 +150,10 @@ Column {
             hoverEnabled: true
             onEntered: root.hoveredIndex = index
             onExited: if (root.hoveredIndex === index) root.hoveredIndex = -1
+            onClicked: {
+              parent.forceActiveFocus()
+              root.hoveredIndex = index
+            }
           }
         }
       }
@@ -188,18 +173,10 @@ Column {
     font.pixelSize: Style.font.caption
   }
 
-  Text {
+  ActionText {
     visible: root.report && root.report.total_ms > 0
     text: root.showValues ? "Hide chart values" : "Show chart values"
-    color: Commons.Color.accent
-    font.family: Style.font.family
-    font.pixelSize: Style.font.body
-
-    MouseArea {
-      anchors.fill: parent
-      cursorShape: Qt.PointingHandCursor
-      onClicked: root.showValues = !root.showValues
-    }
+    onActivated: root.showValues = !root.showValues
   }
 
   Repeater {

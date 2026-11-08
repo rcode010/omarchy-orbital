@@ -119,21 +119,14 @@ Column {
       { key: "pause_on_idle", label: "Pause when idle" }
     ]
 
-    Text {
+    ActionText {
       required property var modelData
       text: (root.draft[modelData.key] ? "☑  " : "☐  ") + modelData.label
       color: Commons.Color.foreground
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
-
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: {
-          var values = Object.assign({}, root.draft)
-          values[modelData.key] = !values[modelData.key]
-          root.draft = values
-        }
+      onActivated: {
+        var values = Object.assign({}, root.draft)
+        values[modelData.key] = !values[modelData.key]
+        root.draft = values
       }
     }
   }
@@ -148,19 +141,11 @@ Column {
     font.pixelSize: Style.font.body
   }
 
-  Text {
+  ActionText {
     text: "Save settings"
-    color: Commons.Color.accent
-    font.family: Style.font.family
-    font.pixelSize: Style.font.body
     font.weight: Font.DemiBold
-
-    MouseArea {
-      anchors.fill: parent
-      enabled: root.service && !root.service.busy
-      cursorShape: Qt.PointingHandCursor
-      onClicked: root.save()
-    }
+    enabled: root.service && !root.service.busy
+    onActivated: root.save()
   }
 
   Text {
@@ -188,21 +173,13 @@ Column {
     Repeater {
       model: ["Create backup", "Export JSON"]
 
-      Text {
+      ActionText {
         required property string modelData
         text: modelData
-        color: Commons.Color.accent
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
         font.weight: Font.DemiBold
-
-        MouseArea {
-          anchors.fill: parent
-          enabled: root.service && !root.service.busy
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.service.submit(modelData === "Create backup"
-            ? "backup.create" : "backup.export_json", {})
-        }
+        enabled: root.service && !root.service.busy
+        onActivated: root.service.submit(modelData === "Create backup"
+          ? "backup.create" : "backup.export_json", {})
       }
     }
   }
@@ -257,24 +234,16 @@ Column {
         font.pixelSize: Style.font.caption
       }
 
-      Text {
+      ActionText {
         id: restoreText
         text: root.confirmingRestoreName === modelData.name ? "Confirm restore" : "Restore"
-        color: Commons.Color.accent
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
-
-        MouseArea {
-          anchors.fill: parent
-          enabled: root.service && !root.service.busy && root.service.phase === "idle"
-          cursorShape: Qt.PointingHandCursor
-          onClicked: {
-            if (root.confirmingRestoreName === modelData.name) {
-              root.service.submit("backup.restore", { name: modelData.name })
-              root.confirmingRestoreName = ""
-            } else {
-              root.confirmingRestoreName = modelData.name
-            }
+        enabled: root.service && !root.service.busy && root.service.phase === "idle"
+        onActivated: {
+          if (root.confirmingRestoreName === modelData.name) {
+            root.service.submit("backup.restore", { name: modelData.name })
+            root.confirmingRestoreName = ""
+          } else {
+            root.confirmingRestoreName = modelData.name
           }
         }
       }

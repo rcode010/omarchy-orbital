@@ -96,22 +96,14 @@ Column {
     Repeater {
       model: ["All activities", "Selected activity"]
 
-      Text {
+      ActionText {
         required property string modelData
         text: modelData
-        color: Commons.Color.accent
         opacity: root.service && ((modelData === "All activities") === (root.service.historyFilterId === "")) ? 1 : 0.5
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
-
-        MouseArea {
-          anchors.fill: parent
-          enabled: root.service && (modelData === "All activities" || root.service.selectedActivityId !== "")
-          cursorShape: Qt.PointingHandCursor
-          onClicked: {
-            root.service.historyFilterId = modelData === "All activities" ? "" : root.service.selectedActivityId
-            root.service.loadHistory(true)
-          }
+        enabled: root.service && (modelData === "All activities" || root.service.selectedActivityId !== "")
+        onActivated: {
+          root.service.historyFilterId = modelData === "All activities" ? "" : root.service.selectedActivityId
+          root.service.loadHistory(true)
         }
       }
     }
@@ -164,34 +156,18 @@ Column {
         font.pixelSize: Style.font.body
       }
 
-      Text {
+      ActionText {
         text: "Edit"
-        color: Commons.Color.accent
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
-
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: root.beginEdit(modelData)
-        }
+        onActivated: root.beginEdit(modelData)
       }
     }
   }
 
-  Text {
+  ActionText {
     visible: root.service && root.service.historyCursor !== null
     text: "Load more"
-    color: Commons.Color.accent
-    font.family: Style.font.family
-    font.pixelSize: Style.font.body
-
-    MouseArea {
-      anchors.fill: parent
-      enabled: root.service && !root.service.busy
-      cursorShape: Qt.PointingHandCursor
-      onClicked: root.service.loadHistory(false)
-    }
+    enabled: root.service && !root.service.busy
+    onActivated: root.service.loadHistory(false)
   }
 
   Column {
@@ -207,17 +183,9 @@ Column {
       font.weight: Font.DemiBold
     }
 
-    Text {
+    ActionText {
       text: "Activity: " + root.activityName() + "  ↻"
-      color: Commons.Color.accent
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
-
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.nextActivity()
-      }
+      onActivated: root.nextActivity()
     }
 
     Text {
@@ -263,17 +231,10 @@ Column {
       font.pixelSize: Style.font.body
     }
 
-    Text {
+    ActionText {
       text: root.allowOverlap ? "☑ Allow overlap" : "☐ Allow overlap"
       color: Commons.Color.foreground
-      font.family: Style.font.family
-      font.pixelSize: Style.font.body
-
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.allowOverlap = !root.allowOverlap
-      }
+      onActivated: root.allowOverlap = !root.allowOverlap
     }
 
     Text {
@@ -292,24 +253,17 @@ Column {
       Repeater {
         model: ["Save correction", root.confirmDelete ? "Confirm delete" : "Delete", "Cancel"]
 
-        Text {
+        ActionText {
           required property string modelData
           text: modelData
           color: modelData === "Delete" ? Commons.Color.foreground : Commons.Color.accent
-          font.family: Style.font.family
-          font.pixelSize: Style.font.body
-
-          MouseArea {
-            anchors.fill: parent
-            enabled: root.service && !root.service.busy
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              if (modelData === "Save correction") root.edit()
-              else if (modelData === "Delete") root.confirmDelete = true
-              else if (modelData === "Confirm delete")
-                root.service.submit("sessions.delete", { session_id: root.editingSession.id })
-              else root.editingSession = null
-            }
+          enabled: root.service && !root.service.busy
+          onActivated: {
+            if (modelData === "Save correction") root.edit()
+            else if (modelData === "Delete") root.confirmDelete = true
+            else if (modelData === "Confirm delete")
+              root.service.submit("sessions.delete", { session_id: root.editingSession.id })
+            else root.editingSession = null
           }
         }
       }

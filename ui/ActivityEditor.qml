@@ -101,12 +101,18 @@ Column {
         radius: width / 2
         color: modelData.value
         border.color: Commons.Color.foreground
-        border.width: root.chosenColor === modelData.name ? 2 : 0
+        border.width: root.chosenColor === modelData.name || activeFocus ? 2 : 0
+        activeFocusOnTab: true
+        Keys.onReturnPressed: root.chosenColor = modelData.name
+        Keys.onSpacePressed: root.chosenColor = modelData.name
 
         MouseArea {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
-          onClicked: root.chosenColor = modelData.name
+          onClicked: {
+            parent.forceActiveFocus()
+            root.chosenColor = modelData.name
+          }
         }
       }
     }
@@ -119,38 +125,31 @@ Column {
       model: ["Save", root.activity && root.activity.archived_at ? "Restore" : "Archive",
               root.confirmDelete ? "Confirm delete" : "Delete", "Cancel"]
 
-      Text {
+      ActionText {
         required property string modelData
         text: modelData
         color: modelData === "Save" ? Commons.Color.accent : Commons.Color.foreground
         opacity: modelData === "Delete" ? 0.65 : 1
-        font.family: Style.font.family
-        font.pixelSize: Style.font.body
         font.weight: Font.DemiBold
-
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          enabled: root.service && !root.service.busy
-          onClicked: {
-            if (modelData === "Save") {
-              root.service.submit("activities.update", {
-                activity_id: root.activity.id,
-                name: nameInput.text.trim(), icon: iconInput.text.trim(), color: root.chosenColor
-              })
-              root.done()
-            } else if (modelData === "Archive" || modelData === "Restore") {
-              root.service.submit(modelData === "Archive" ? "activities.archive" : "activities.restore",
-                                  { activity_id: root.activity.id })
-              root.done()
-            } else if (modelData === "Delete") {
-              root.confirmDelete = true
-            } else if (modelData === "Confirm delete") {
-              root.service.submit("activities.delete", { activity_id: root.activity.id })
-              root.done()
-            } else {
-              root.done()
-            }
+        enabled: root.service && !root.service.busy
+        onActivated: {
+          if (modelData === "Save") {
+            root.service.submit("activities.update", {
+              activity_id: root.activity.id,
+              name: nameInput.text.trim(), icon: iconInput.text.trim(), color: root.chosenColor
+            })
+            root.done()
+          } else if (modelData === "Archive" || modelData === "Restore") {
+            root.service.submit(modelData === "Archive" ? "activities.archive" : "activities.restore",
+                                { activity_id: root.activity.id })
+            root.done()
+          } else if (modelData === "Delete") {
+            root.confirmDelete = true
+          } else if (modelData === "Confirm delete") {
+            root.service.submit("activities.delete", { activity_id: root.activity.id })
+            root.done()
+          } else {
+            root.done()
           }
         }
       }

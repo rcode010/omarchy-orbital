@@ -111,20 +111,13 @@ Panel {
           Repeater {
             model: ["Home", "Insights", "History", "Settings"]
 
-            Text {
+            OrbitalUi.ActionText {
               required property string modelData
               text: modelData
               color: root.foreground
               opacity: root.page === modelData.toLowerCase() ? 1 : 0.55
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body
               font.weight: root.page === modelData.toLowerCase() ? Font.DemiBold : Font.Normal
-
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.setPage(modelData.toLowerCase())
-              }
+              onActivated: root.setPage(modelData.toLowerCase())
             }
           }
         }
@@ -172,21 +165,14 @@ Panel {
           Repeater {
             model: ["focus", "stopwatch"]
 
-            Text {
+            OrbitalUi.ActionText {
               required property string modelData
               text: modelData === "focus" ? "Focus" : "Stopwatch"
               color: root.foreground
               opacity: root.service && root.service.mode === modelData ? 1 : 0.5
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body
               font.weight: root.service && root.service.mode === modelData ? Font.DemiBold : Font.Normal
-
-              MouseArea {
-                anchors.fill: parent
-                enabled: root.service && root.service.phase === "idle"
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.service.mode = modelData
-              }
+              enabled: root.service && root.service.phase === "idle"
+              onActivated: root.service.mode = modelData
             }
           }
         }
@@ -350,40 +336,25 @@ Panel {
         Row {
           spacing: Style.space(18)
 
-          Text {
+          OrbitalUi.ActionText {
             text: "Manage selected"
-            color: Commons.Color.accent
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-
-            MouseArea {
-              anchors.fill: parent
-              enabled: root.service && root.service.selectedActivityId !== ""
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                for (var i = 0; i < root.service.activities.length; i++) {
-                  var activity = root.service.activities[i]
-                  if (activity.id === root.service.selectedActivityId) root.beginEdit(activity)
-                }
+            enabled: root.service && root.service.selectedActivityId !== ""
+            onActivated: {
+              for (var i = 0; i < root.service.activities.length; i++) {
+                var activity = root.service.activities[i]
+                if (activity.id === root.service.selectedActivityId) root.beginEdit(activity)
               }
             }
           }
 
-          Text {
+          OrbitalUi.ActionText {
             text: root.service && root.service.showArchived ? "Hide archived" : "Show archived"
             color: root.foreground
             opacity: 0.7
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-
-            MouseArea {
-              anchors.fill: parent
-              enabled: root.service !== null
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                root.service.showArchived = !root.service.showArchived
-                root.service.refresh()
-              }
+            enabled: root.service !== null
+            onActivated: {
+              root.service.showArchived = !root.service.showArchived
+              root.service.refresh()
             }
           }
         }
@@ -436,6 +407,11 @@ Panel {
             height: Style.space(40)
             radius: Style.space(8)
             color: Commons.Color.accent
+            activeFocusOnTab: true
+            border.color: activeFocus ? root.foreground : "transparent"
+            border.width: activeFocus ? 2 : 0
+            Keys.onReturnPressed: createActivity()
+            Keys.onSpacePressed: createActivity()
 
             function createActivity() {
               if (!root.service || activityInput.text.trim() === "") return
@@ -455,7 +431,10 @@ Panel {
             MouseArea {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
-              onClicked: addButton.createActivity()
+              onClicked: {
+                addButton.forceActiveFocus()
+                addButton.createActivity()
+              }
             }
           }
         }

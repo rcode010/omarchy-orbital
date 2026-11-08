@@ -56,18 +56,10 @@ Column {
     }
   }
 
-  Text {
+  ActionText {
     text: root.expanded ? "Cancel missed time" : "+ Add missed time"
-    color: Commons.Color.accent
-    font.family: Style.font.family
-    font.pixelSize: Style.font.body
     font.weight: Font.DemiBold
-
-    MouseArea {
-      anchors.fill: parent
-      cursorShape: Qt.PointingHandCursor
-      onClicked: root.expanded = !root.expanded
-    }
+    onActivated: root.expanded = !root.expanded
   }
 
   Text {
@@ -168,18 +160,11 @@ Column {
     }
   }
 
-  Text {
+  ActionText {
     visible: root.expanded
     text: root.allowOverlap ? "☑ Allow overlap" : "☐ Allow overlap"
     color: Commons.Color.foreground
-    font.family: Style.font.family
-    font.pixelSize: Style.font.body
-
-    MouseArea {
-      anchors.fill: parent
-      cursorShape: Qt.PointingHandCursor
-      onClicked: root.allowOverlap = !root.allowOverlap
-    }
+    onActivated: root.allowOverlap = !root.allowOverlap
   }
 
   Text {
@@ -192,19 +177,11 @@ Column {
     font.pixelSize: Style.font.body
   }
 
-  Text {
+  ActionText {
     visible: root.expanded
     text: "Save missed time"
-    color: Commons.Color.accent
-    font.family: Style.font.family
-    font.pixelSize: Style.font.body
     font.weight: Font.DemiBold
-
-    MouseArea {
-      anchors.fill: parent
-      enabled: root.service && !root.service.busy
-      cursorShape: Qt.PointingHandCursor
-      onClicked: root.submit()
-    }
+    enabled: root.service && !root.service.busy
+    onActivated: root.submit()
   }
 }
