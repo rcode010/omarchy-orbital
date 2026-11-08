@@ -27,6 +27,9 @@ QtObject {
                             long_break_minutes: 15, long_break_every: 4,
                             auto_start_break: false, auto_start_focus: false,
                             notifications: false })
+  property var backups: []
+  property string backupMessage: ""
+  property string exportName: ""
   property bool showArchived: false
   property string selectedActivityId: ""
   property string errorMessage: ""
@@ -126,6 +129,10 @@ QtObject {
     submit("reports.period", request)
   }
 
+  function loadBackups() {
+    submit("backup.list", {})
+  }
+
   function showNotification(title, message) {
     if (!settings.notifications || notification.running) return
     notification.command = ["notify-send", "--app-name=Orbital", title, message]
@@ -180,6 +187,24 @@ QtObject {
       } else if (activeRequest.command === "settings.get" || activeRequest.command === "settings.update") {
         settings = parsed.result.settings
         if (phase === "idle") plannedSeconds = settings.focus_minutes * 60
+      } else if (activeRequest.command === "backup.list") {
+        backups = parsed.result.backups
+      } else if (activeRequest.command === "backup.create") {
+        backupMessage = "Backup created: " + parsed.result.name
+        loadBackups()
+      } else if (activeRequest.command === "backup.export_json") {
+        exportName = parsed.result.name
+        backupMessage = "JSON exported: " + parsed.result.name
+      } else if (activeRequest.command === "backup.restore") {
+        backupMessage = "Restored " + parsed.result.restored
+          + ". Previous data saved as " + parsed.result.previous_backup
+        refresh()
+        submit("timer.load", {})
+        submit("settings.get", {})
+        refreshReports()
+        loadHistory(true)
+        if (insightsReport) loadInsights()
+        loadBackups()
       } else if (activeRequest.command.indexOf("sessions.") === 0) {
         refreshReports()
         loadHistory(true)

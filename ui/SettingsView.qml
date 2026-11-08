@@ -7,6 +7,7 @@ Column {
   property var service: null
   property var draft: ({})
   property string validationError: ""
+  property string confirmingRestoreName: ""
 
   width: parent ? parent.width : 0
   spacing: Style.space(12)
@@ -155,6 +156,124 @@ Column {
       enabled: root.service && !root.service.busy
       cursorShape: Qt.PointingHandCursor
       onClicked: root.save()
+    }
+  }
+
+  Text {
+    text: "YOUR DATA"
+    color: Commons.Color.foreground
+    opacity: 0.65
+    font.family: Style.font.family
+    font.pixelSize: Style.font.caption
+    font.letterSpacing: 1.5
+  }
+
+  Text {
+    width: root.width
+    wrapMode: Text.WordWrap
+    text: "Backups stay on this computer. Restoring replaces current data and first saves a copy of it. Finish the timer before restoring."
+    color: Commons.Color.foreground
+    opacity: 0.7
+    font.family: Style.font.family
+    font.pixelSize: Style.font.body
+  }
+
+  Row {
+    spacing: Style.space(16)
+
+    Repeater {
+      model: ["Create backup", "Export JSON"]
+
+      Text {
+        required property string modelData
+        text: modelData
+        color: Commons.Color.accent
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        font.weight: Font.DemiBold
+
+        MouseArea {
+          anchors.fill: parent
+          enabled: root.service && !root.service.busy
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.service.submit(modelData === "Create backup"
+            ? "backup.create" : "backup.export_json", {})
+        }
+      }
+    }
+  }
+
+  Text {
+    visible: root.service && root.service.backupMessage !== ""
+    width: root.width
+    wrapMode: Text.WordWrap
+    text: root.service ? root.service.backupMessage : ""
+    color: Commons.Color.foreground
+    font.family: Style.font.family
+    font.pixelSize: Style.font.caption
+  }
+
+  Text {
+    text: "RESTORABLE BACKUPS"
+    color: Commons.Color.foreground
+    opacity: 0.65
+    font.family: Style.font.family
+    font.pixelSize: Style.font.caption
+    font.letterSpacing: 1.5
+  }
+
+  Text {
+    visible: root.service && root.service.backups.length === 0
+    text: "No backups created yet."
+    color: Commons.Color.foreground
+    opacity: 0.6
+    font.family: Style.font.family
+    font.pixelSize: Style.font.body
+  }
+
+  ListView {
+    width: root.width
+    height: Math.min(Style.space(176), count * Style.space(44))
+    clip: true
+    spacing: Style.space(4)
+    model: root.service ? root.service.backups : []
+
+    delegate: Row {
+      required property var modelData
+      width: ListView.view.width
+      height: Style.space(40)
+      spacing: Style.space(10)
+
+      Text {
+        width: parent.width - restoreText.width - parent.spacing
+        text: modelData.name
+        elide: Text.ElideMiddle
+        color: Commons.Color.foreground
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+      }
+
+      Text {
+        id: restoreText
+        text: root.confirmingRestoreName === modelData.name ? "Confirm restore" : "Restore"
+        color: Commons.Color.accent
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+
+        MouseArea {
+          anchors.fill: parent
+          enabled: root.service && !root.service.busy && root.service.phase === "idle"
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            if (root.confirmingRestoreName === modelData.name) {
+              root.service.submit("backup.restore", { name: modelData.name })
+              root.confirmingRestoreName = ""
+            } else {
+              root.confirmingRestoreName = modelData.name
+            }
+          }
+        }
+      }
     }
   }
 }

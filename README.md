@@ -4,7 +4,7 @@ Orbital is a local activity timer for the built-in Omarchy bar. Create recurring
 
 Repository: https://github.com/rcode010/omarchy-orbital
 
-This repository is under active development. The current build provides activity creation, selection, renaming, color/icon edits, archiving, restoring, and safe deletion of unused activities. It also provides a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, short/long breaks, durable SQLite sessions, saved Today totals by activity, an Add Missed Time form, paged History with correction and deletion, and Today/Day/Week/Month/Year Insights. Timer, break, and optional notification preferences are available in Settings. Idle detection, data backup/restore, and full accessibility work are still in progress. Do not treat this build as a stable 1.0 release.
+This repository is under active development. The current build provides activity creation, selection, renaming, color/icon edits, archiving, restoring, and safe deletion of unused activities. It also provides a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, short/long breaks, durable SQLite sessions, saved Today totals by activity, an Add Missed Time form, paged History with correction and deletion, and Today/Day/Week/Month/Year Insights. Timer and notification preferences, plus local backup and restore controls, are available in Settings. Idle detection and full accessibility work are still in progress. Do not treat this build as a stable 1.0 release.
 
 ## Requirements
 
@@ -34,6 +34,8 @@ No package installation, network service, account, or telemetry is required by O
 ## Data and recovery
 
 Orbital stores `orbital.sqlite3` under `$XDG_DATA_HOME/io.github.rcode010.omarchy-orbital/`, or `~/.local/share/io.github.rcode010.omarchy-orbital/` when `XDG_DATA_HOME` is unset. The directory and database are restricted to the user. Normal plugin removal does not delete this directory.
+
+Settings can create a restorable `.sqlite3` snapshot or a readable JSON export in the `backups/` subdirectory. Restore accepts a listed Orbital snapshot of the current schema, checks its integrity and references, requires an idle timer, and creates a `pre-restore` snapshot of current data before replacement. Copy an Orbital `.sqlite3` snapshot from another machine into that `backups/` directory to make it available in the restore list. JSON exports are for inspection or external processing; restore uses the SQLite snapshots. Keep separate copies outside this data directory if you need protection against disk loss.
 
 The timer uses Linux monotonic time for measured active intervals. A restart or crash pauses the session at its last verified checkpoint, normally up to a minute earlier while continuously running, and potentially earlier if a checkpoint failed. This conservative recovery avoids counting unverified downtime. The current session can then be resumed, finished, or discarded. Paused time and system suspend do not advance measured active time.
 

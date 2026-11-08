@@ -84,10 +84,21 @@ Panel {
                   scroll.contentY = 0
                   if (root.page === "history" && root.service) root.service.loadHistory(true)
                   if (root.page === "insights" && root.service) root.service.loadInsights()
+                  if (root.page === "settings" && root.service) root.service.loadBackups()
                 }
               }
             }
           }
+        }
+
+        Text {
+          visible: root.service && root.service.errorMessage !== ""
+          width: content.width
+          wrapMode: Text.WordWrap
+          text: root.service ? root.service.errorMessage : ""
+          color: Commons.Color.accent
+          font.family: Style.font.family
+          font.pixelSize: Style.font.body
         }
 
         Column {
@@ -248,16 +259,6 @@ Panel {
               }
             }
           }
-        }
-
-        Text {
-          visible: root.service && root.service.errorMessage !== ""
-          width: parent.width
-          wrapMode: Text.WordWrap
-          text: root.service ? root.service.errorMessage : ""
-          color: Commons.Color.accent
-          font.family: Style.font.family
-          font.pixelSize: Style.font.body
         }
 
         Text {
