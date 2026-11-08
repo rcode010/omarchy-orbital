@@ -25,6 +25,8 @@ Insights uses the current system time zone at query time. Weeks start on Monday.
 
 Validate the checkout with `omarchy plugin validate .` and run the backend tests with `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v`.
 
+Run a temporary 50,000-session annual report benchmark with `PYTHONDONTWRITEBYTECODE=1 python3 scripts/benchmark_reports.py`. On an Intel Core i9-14900HX with Python 3.14.8 and SQLite 3.54.0, the 2026-11-08 run reported 261.3 ms cold and 261.6 ms warm for the annual report. The script creates a fresh temporary database, inserts 50,000 measured sessions and segments, reads the annual report twice, and checks that chart points reconcile with the total. These numbers measure only the helper query and aggregation, not panel open time or shell CPU/memory delta.
+
 When the Omarchy shell is running, install a local Git checkout with `omarchy plugin add /path/to/omarchy-orbital --enable`. Omarchy copies the committed files into its plugin directory. If using an uncommitted working tree during development, update the installed checkout deliberately and revalidate it. The plugin runs inside the user's shell process with the user's permissions, so review code before enabling it.
 
 No package installation, network service, account, or telemetry is required by Orbital.

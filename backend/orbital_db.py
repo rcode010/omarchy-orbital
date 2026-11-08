@@ -524,21 +524,35 @@ def period_summary(db, request):
     sessions = set()
     daily = {}
     segments = range_segments(db, start, end)
+
+    def credit(row, current, portion):
+        if portion <= 0:
+            return
+        sessions.add(row["id"])
+        key = current.isoformat()
+        daily[key] = daily.get(key, 0) + portion
+        entry = totals.setdefault(row["activity_id"], {
+            "activity_id": row["activity_id"], "name": row["name"],
+            "icon": row["icon"], "color": row["color"], "active_ms": 0,
+        })
+        entry["active_ms"] += portion
+
     for row in segments:
-        current = max(first_day, datetime.fromisoformat(row["started_at"]).astimezone(zone).date())
+        segment_start = datetime.fromisoformat(row["started_at"])
+        segment_end = datetime.fromisoformat(row["ended_at"])
+        local_start = segment_start.astimezone(zone).date()
+        if start <= segment_start and segment_end <= end and segment_end > segment_start:
+            local_end = (segment_end - timedelta(microseconds=1)).astimezone(zone).date()
+            if local_start == local_end:
+                credit(row, local_start, row["active_ms"])
+                continue
+        current = max(first_day, local_start)
         while current < end_day:
             day_start = datetime.combine(current, datetime.min.time(), zone).astimezone(timezone.utc)
             day_end = datetime.combine(current + timedelta(days=1), datetime.min.time(), zone).astimezone(timezone.utc)
             portion = allocated_ms(row["started_at"], row["ended_at"], row["active_ms"], day_start, day_end)
-            if portion > 0:
-                sessions.add(row["id"])
-                daily[current.isoformat()] = daily.get(current.isoformat(), 0) + portion
-                entry = totals.setdefault(row["activity_id"], {
-                    "activity_id": row["activity_id"], "name": row["name"],
-                    "icon": row["icon"], "color": row["color"], "active_ms": 0,
-                })
-                entry["active_ms"] += portion
-            if day_start >= datetime.fromisoformat(row["ended_at"]):
+            credit(row, current, portion)
+            if day_start >= segment_end:
                 break
             current += timedelta(days=1)
     activities = sorted(totals.values(), key=lambda item: (-item["active_ms"], item["name"]))
