@@ -4,7 +4,7 @@ Orbital is a local activity timer for the built-in Omarchy bar. Create recurring
 
 Repository: https://github.com/rcode010/omarchy-orbital
 
-This repository is under active development. The current build provides activity creation and selection, a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, and durable SQLite sessions. The panel has no History, Today totals, Insights, settings, or Pomodoro break flow yet. Do not treat this build as a stable 1.0 release.
+This repository is under active development. The current build provides activity creation and selection, a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, durable SQLite sessions, saved Today totals by activity, and a short recent-session list. Full History editing, Insights, settings, and Pomodoro break flow are still in progress. Do not treat this build as a stable 1.0 release.
 
 ## Requirements
 
@@ -29,7 +29,7 @@ Orbital stores `orbital.sqlite3` under `$XDG_DATA_HOME/io.github.rcode010.omarch
 
 The timer uses Linux monotonic time for measured active intervals. A restart or crash pauses the session at its last verified checkpoint, normally up to a minute earlier while continuously running, and potentially earlier if a checkpoint failed. This conservative recovery avoids counting unverified downtime. The current session can then be resumed, finished, or discarded. Paused time and system suspend do not advance measured active time.
 
-The stored session rows include UTC start/end times and active seconds. Per-day attribution across pauses and midnight needs segment storage and is not implemented in this development build.
+The stored session rows include UTC start/end times and active seconds. New measured sessions also store their active work segments. Today totals split those segments at local midnight using the system time zone, including daylight-saving changes, and exclude pauses. Sessions saved by older development builds have no segments; their daily attribution is estimated proportionally across the recorded start/end interval. If the system clock changes substantially during a segment, Orbital anchors that segment to its start time and measured monotonic duration to avoid allocating phantom hours.
 
 ## Current keyboard behavior
 

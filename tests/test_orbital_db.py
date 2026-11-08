@@ -57,7 +57,7 @@ class ActivityStorageTests(unittest.TestCase):
         activity_id = self.call("activities.create", name="Project")["activity_id"]
         self.assertEqual(self.call("activities.list")["selected_activity_id"], activity_id)
         with closing(orbital_db.connect(self.path)) as db:
-            self.assertEqual(db.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0], 2)
+            self.assertEqual(db.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0], 3)
 
     def test_finish_early_saves_active_time_once(self):
         self.call("activities.create", name="Study")
@@ -158,6 +158,54 @@ class ActivityStorageTests(unittest.TestCase):
                                 capture_output=True, env=env, check=True)
         self.assertEqual(json.loads(listed.stdout)["result"]["activities"][0]["name"],
                          "Reading & writing $(safe)")
+
+    def test_day_summary_splits_work_and_excludes_pause(self):
+        self.call("activities.create", name="Thesis")
+        wall_times = ["2026-11-08T20:50:00.000+00:00", "2026-11-08T21:00:00.000+00:00",
+                      "2026-11-08T22:00:00.000+00:00", "2026-11-08T22:10:00.000+00:00"]
+        mono_times = [0, 600, 4200, 4800]
+        with patch.object(orbital_db, "boot_id", return_value="boot"), patch.object(
+            orbital_db, "utc_now", side_effect=wall_times
+        ), patch.object(orbital_db.time, "monotonic_ns",
+                        side_effect=[value * 1_000_000_000 for value in mono_times]):
+            self.call("timer.start", mode="stopwatch")
+            self.call("timer.pause")
+            self.call("timer.resume")
+            self.call("timer.finish")
+        first = self.call("reports.day", day="2026-11-08", zone="Asia/Baghdad")
+        second = self.call("reports.day", day="2026-11-09", zone="Asia/Baghdad")
+        self.assertEqual(first["total_ms"], 600000)
+        self.assertEqual(second["total_ms"], 600000)
+        self.assertEqual(first["session_count"], 1)
+        self.assertEqual(second["session_count"], 1)
+        self.assertEqual(len(self.call("sessions.recent")["sessions"]), 1)
+
+    def test_dst_day_boundaries_and_split(self):
+        activity_id = self.call("activities.create", name="Study")["activity_id"]
+        with closing(orbital_db.connect(self.path)) as db, db:
+            db.execute("INSERT INTO sessions (id, activity_id, mode, source, started_at, ended_at, "
+                       "active_seconds, reason) VALUES ('dst', ?, 'focus', 'measured', ?, ?, 3600, 'completed')",
+                       (activity_id, "2026-03-08T04:30:00.000+00:00", "2026-03-08T05:30:00.000+00:00"))
+            db.execute("INSERT INTO work_segments VALUES ('dst', ?, ?, 3600000)",
+                       ("2026-03-08T04:30:00.000+00:00", "2026-03-08T05:30:00.000+00:00"))
+        previous = self.call("reports.day", day="2026-03-07", zone="America/New_York")
+        next_day = self.call("reports.day", day="2026-03-08", zone="America/New_York")
+        self.assertEqual(previous["total_ms"], 1800000)
+        self.assertEqual(next_day["total_ms"], 1800000)
+        _, start, end = orbital_db.day_bounds({"day": "2026-03-08", "zone": "America/New_York"})
+        self.assertEqual((end - start).total_seconds(), 23 * 3600)
+        _, start, end = orbital_db.day_bounds({"day": "2026-11-01", "zone": "America/New_York"})
+        self.assertEqual((end - start).total_seconds(), 25 * 3600)
+
+    def test_archiving_active_activity_preserves_timer(self):
+        activity_id = self.call("activities.create", name="Exercise")["activity_id"]
+        with patch.object(orbital_db, "boot_id", return_value="boot"):
+            self.call("timer.start", mode="stopwatch")
+        with self.assertRaises(orbital_db.RequestError) as error:
+            self.call("activities.archive", activity_id=activity_id)
+        self.assertEqual(error.exception.code, "timer_active")
+        self.assertEqual(self.call("activities.list")["selected_activity_id"], activity_id)
+        self.assertEqual(self.call("timer.checkpoint")["phase"], "paused")
 
 
 if __name__ == "__main__":

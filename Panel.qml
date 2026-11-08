@@ -52,7 +52,7 @@ Panel {
         }
 
         Text {
-          text: "Your activities"
+          text: "Today"
           color: root.foreground
           font.family: Style.font.family
           font.pixelSize: Style.font.title
@@ -94,6 +94,27 @@ Panel {
                 onClicked: root.service.mode = modelData
               }
             }
+          }
+        }
+
+        Row {
+          width: parent.width
+          spacing: Style.space(12)
+
+          Text {
+            text: root.service ? root.service.formatDuration(root.service.today.total_ms) : "0s"
+            color: Commons.Color.accent
+            font.family: Style.font.family
+            font.pixelSize: Style.font.title
+            font.weight: Font.DemiBold
+          }
+
+          Text {
+            text: root.service ? root.service.today.session_count + " sessions saved" : ""
+            color: root.foreground
+            opacity: 0.65
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
           }
         }
 
@@ -174,6 +195,15 @@ Panel {
           font.pixelSize: Style.font.body
         }
 
+        Text {
+          text: "ACTIVITIES"
+          color: root.foreground
+          opacity: 0.6
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          font.letterSpacing: 1.5
+        }
+
         ListView {
           width: content.width
           height: Math.min(Style.space(210), count * Style.space(46))
@@ -194,6 +224,7 @@ Panel {
             Text {
               anchors.fill: parent
               anchors.leftMargin: Style.space(12)
+              anchors.rightMargin: Style.space(80)
               verticalAlignment: Text.AlignVCenter
               text: modelData.icon ? modelData.icon + "  " + modelData.name : modelData.name
               elide: Text.ElideRight
@@ -201,6 +232,18 @@ Panel {
                 ? Commons.Color.background : root.foreground
               font.family: Style.font.family
               font.pixelSize: Style.font.body
+            }
+
+            Text {
+              anchors.right: parent.right
+              anchors.rightMargin: Style.space(12)
+              anchors.verticalCenter: parent.verticalCenter
+              text: root.service.formatDuration(root.service.todayByActivity[modelData.id] || 0)
+              color: modelData.id === root.service.selectedActivityId
+                ? Commons.Color.background : root.foreground
+              opacity: 0.75
+              font.family: Style.font.family
+              font.pixelSize: Style.font.caption
             }
 
             MouseArea {
@@ -273,6 +316,52 @@ Panel {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
               onClicked: addButton.createActivity()
+            }
+          }
+        }
+
+        Text {
+          visible: root.service && root.service.recentSessions.length > 0
+          text: "RECENT SESSIONS"
+          color: root.foreground
+          opacity: 0.6
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          font.letterSpacing: 1.5
+        }
+
+        Repeater {
+          model: root.service ? root.service.recentSessions : []
+
+          Row {
+            required property var modelData
+            width: content.width
+            spacing: Style.space(8)
+
+            Text {
+              width: parent.width * 0.48
+              text: modelData.activity_name
+              elide: Text.ElideRight
+              color: root.foreground
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+            }
+
+            Text {
+              width: parent.width * 0.24
+              text: root.service.formatDuration(modelData.active_seconds * 1000)
+              color: root.foreground
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+            }
+
+            Text {
+              width: parent.width * 0.24
+              text: Qt.formatDateTime(new Date(modelData.started_at), "MMM d")
+              color: root.foreground
+              opacity: 0.6
+              font.family: Style.font.family
+              font.pixelSize: Style.font.caption
             }
           }
         }

@@ -12,6 +12,9 @@ QtObject {
   property int plannedSeconds: 1500
   property double displayStartedAt: 0
   property var activities: []
+  property var today: ({ day: "", total_ms: 0, session_count: 0, activities: [] })
+  property var todayByActivity: ({})
+  property var recentSessions: []
   property string selectedActivityId: ""
   property string errorMessage: ""
   property bool busy: false
@@ -29,6 +32,15 @@ QtObject {
     var minutes = Math.floor(seconds / 60)
     var remainder = seconds % 60
     return minutes + ":" + (remainder < 10 ? "0" : "") + remainder
+  }
+
+  function formatDuration(milliseconds) {
+    var seconds = Math.floor(milliseconds / 1000)
+    var hours = Math.floor(seconds / 3600)
+    var minutes = Math.floor((seconds % 3600) / 60)
+    if (hours > 0) return hours + "h " + minutes + "m"
+    if (minutes > 0) return minutes + "m"
+    return seconds + "s"
   }
 
   function applyTimer(timer) {
@@ -70,6 +82,11 @@ QtObject {
     submit("activities.list", {})
   }
 
+  function refreshReports() {
+    submit("reports.day", {})
+    submit("sessions.recent", { limit: 8 })
+  }
+
   function handleResult(exitCode, output) {
     busy = false
     var parsed = null
@@ -89,8 +106,18 @@ QtObject {
         }
       } else if (activeRequest.command.indexOf("timer.") === 0) {
         applyTimer(parsed.result.timer || parsed.result)
+        if (parsed.result.saved) refreshReports()
+      } else if (activeRequest.command === "reports.day") {
+        today = parsed.result
+        var totals = {}
+        for (var j = 0; j < today.activities.length; j++)
+          totals[today.activities[j].activity_id] = today.activities[j].active_ms
+        todayByActivity = totals
+      } else if (activeRequest.command === "sessions.recent") {
+        recentSessions = parsed.result.sessions
       } else {
         refresh()
+        refreshReports()
       }
     }
     activeRequest = null
@@ -126,8 +153,23 @@ QtObject {
     onTriggered: root.submit("timer.complete", {})
   }
 
+  property Timer calendarTick: Timer {
+    interval: 60000
+    repeat: true
+    running: true
+    property string visibleDay: new Date().toDateString()
+    onTriggered: {
+      var currentDay = new Date().toDateString()
+      if (currentDay !== visibleDay) {
+        visibleDay = currentDay
+        root.refreshReports()
+      }
+    }
+  }
+
   Component.onCompleted: {
     refresh()
     submit("timer.load", {})
+    refreshReports()
   }
 }

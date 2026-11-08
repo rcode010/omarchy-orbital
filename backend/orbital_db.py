@@ -5,8 +5,9 @@ import sys
 import time
 import uuid
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 PLUGIN_ID = "io.github.rcode010.omarchy-orbital"
@@ -46,7 +47,7 @@ def migrate(db):
     with db:
         db.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY)")
         version = db.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").fetchone()[0]
-        if version > 2:
+        if version > 3:
             raise RequestError("unsupported_schema", "Orbital data requires a newer version")
         if version == 0:
             db.executescript("""
@@ -85,6 +86,13 @@ def migrate(db):
             db.execute("ALTER TABLE timer_state ADD COLUMN boot_id TEXT")
             db.execute("ALTER TABLE timer_state ADD COLUMN work_started_at TEXT")
             db.execute("INSERT INTO schema_migrations (version) VALUES (2)")
+        if version < 3:
+            db.execute("CREATE TABLE work_segments ("
+                       "session_id TEXT NOT NULL, started_at TEXT NOT NULL, ended_at TEXT NOT NULL, "
+                       "active_ms INTEGER NOT NULL CHECK (active_ms > 0))")
+            db.execute("CREATE INDEX work_segments_by_start ON work_segments(started_at)")
+            db.execute("CREATE INDEX work_segments_by_session ON work_segments(session_id)")
+            db.execute("INSERT INTO schema_migrations (version) VALUES (3)")
 
 
 def text_field(request, field, limit, default=None, optional=False):
@@ -152,6 +160,9 @@ def archive_activity(db, request, archived):
     with db:
         if db.execute("SELECT 1 FROM activities WHERE id = ?", (activity_id,)).fetchone() is None:
             raise RequestError("not_found", "Activity not found")
+        timer = timer_row(db)
+        if archived and timer["selected_activity_id"] == activity_id and timer["phase"] != "idle":
+            raise RequestError("timer_active", "Finish or discard this activity's session first")
         db.execute("UPDATE activities SET archived_at = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END, "
                    "updated_at = CURRENT_TIMESTAMP WHERE id = ?", (archived, activity_id))
         if archived:
@@ -195,12 +206,32 @@ def elapsed_ms(row, now_ns, current_boot):
     return row["active_ms"] + (now_ns - segment_ns) // 1_000_000
 
 
+def record_segment(db, row, now, now_ns, current_boot):
+    started_ns = row["segment_monotonic_ns"]
+    started_at = row["segment_started_at"]
+    if row["phase"] != "running" or row["boot_id"] != current_boot:
+        return 0
+    if started_ns is None or started_at is None or started_ns > now_ns:
+        return 0
+    duration_ms = (now_ns - started_ns) // 1_000_000
+    if duration_ms <= 0:
+        return 0
+    start = datetime.fromisoformat(started_at)
+    wall_end = datetime.fromisoformat(now)
+    expected_end = start + timedelta(milliseconds=duration_ms)
+    end = wall_end if abs((wall_end - expected_end).total_seconds()) <= 5 else expected_end
+    db.execute("INSERT INTO work_segments (session_id, started_at, ended_at, active_ms) "
+               "VALUES (?, ?, ?, ?)",
+               (row["session_id"], started_at, end.isoformat(timespec="milliseconds"), duration_ms))
+    return duration_ms
+
+
 def timer_load(db, request):
     with db:
         row = timer_row(db)
         if row["phase"] == "running":
             db.execute("UPDATE timer_state SET phase = 'paused', segment_monotonic_ns = NULL, "
-                       "updated_at = ? WHERE singleton = 1", (utc_now(),))
+                       "segment_started_at = NULL, updated_at = ? WHERE singleton = 1", (utc_now(),))
             row = timer_row(db)
     return timer_view(row)
 
@@ -233,50 +264,57 @@ def timer_start(db, request):
             raise RequestError("no_activity", "Select an active activity first")
         db.execute("UPDATE timer_state SET mode = ?, phase = 'running', active_ms = 0, "
                    "active_seconds = 0, segment_monotonic_ns = ?, boot_id = ?, "
-                   "work_started_at = ?, session_id = ?, planned_seconds = ?, updated_at = ? "
-                   "WHERE singleton = 1", (mode, now_ns, current_boot, now, str(uuid.uuid4()), planned, now))
+                   "segment_started_at = ?, work_started_at = ?, session_id = ?, "
+                   "planned_seconds = ?, updated_at = ? WHERE singleton = 1",
+                   (mode, now_ns, current_boot, now, now, str(uuid.uuid4()), planned, now))
         return timer_view(timer_row(db))
 
 
 def timer_pause(db, request):
     now_ns = time.monotonic_ns()
     current_boot = boot_id()
+    now = utc_now()
     with db:
         row = timer_row(db)
         if row["phase"] != "running":
             raise RequestError("invalid_state", "Timer is not running")
-        total = elapsed_ms(row, now_ns, current_boot)
+        total = row["active_ms"] + record_segment(db, row, now, now_ns, current_boot)
         db.execute("UPDATE timer_state SET phase = 'paused', active_ms = ?, "
-                   "segment_monotonic_ns = NULL, updated_at = ? WHERE singleton = 1",
-                   (total, utc_now()))
+                   "segment_monotonic_ns = NULL, segment_started_at = NULL, updated_at = ? "
+                   "WHERE singleton = 1", (total, now))
         return timer_view(timer_row(db))
 
 
 def timer_resume(db, request):
+    now_ns = time.monotonic_ns()
+    now = utc_now()
+    current_boot = boot_id()
     with db:
         row = timer_row(db)
         if row["phase"] != "paused":
             raise RequestError("invalid_state", "Timer is not paused")
         db.execute("UPDATE timer_state SET phase = 'running', segment_monotonic_ns = ?, "
-                   "boot_id = ?, updated_at = ? WHERE singleton = 1",
-                   (time.monotonic_ns(), boot_id(), utc_now()))
+                   "segment_started_at = ?, boot_id = ?, updated_at = ? WHERE singleton = 1",
+                   (now_ns, now, current_boot, now))
         return timer_view(timer_row(db))
 
 
 def timer_checkpoint(db, request):
     now_ns = time.monotonic_ns()
     current_boot = boot_id()
+    now = utc_now()
     with db:
         row = timer_row(db)
         if row["phase"] != "running":
             return timer_view(row)
         if row["boot_id"] != current_boot:
             db.execute("UPDATE timer_state SET phase = 'paused', segment_monotonic_ns = NULL, "
-                       "updated_at = ? WHERE singleton = 1", (utc_now(),))
+                       "segment_started_at = NULL, updated_at = ? WHERE singleton = 1", (now,))
         else:
-            total = elapsed_ms(row, now_ns, current_boot)
+            total = row["active_ms"] + record_segment(db, row, now, now_ns, current_boot)
             db.execute("UPDATE timer_state SET active_ms = ?, segment_monotonic_ns = ?, "
-                       "updated_at = ? WHERE singleton = 1", (total, now_ns, utc_now()))
+                       "segment_started_at = ?, updated_at = ? WHERE singleton = 1",
+                       (total, now_ns, now, now))
         return timer_view(timer_row(db))
 
 
@@ -290,7 +328,7 @@ def timer_stop(db, request, save, reason=None):
             return {"saved": False, "active_seconds": 0, "timer": timer_view(row)}
         if row["phase"] not in ("running", "paused"):
             raise RequestError("invalid_state", "Timer cannot be stopped")
-        total = elapsed_ms(row, now_ns, current_boot)
+        total = row["active_ms"] + record_segment(db, row, now, now_ns, current_boot)
         seconds = total // 1000
         if save and seconds > 0:
             db.execute("INSERT INTO sessions (id, activity_id, mode, source, started_at, ended_at, "
@@ -298,8 +336,11 @@ def timer_stop(db, request, save, reason=None):
                        (row["session_id"], row["selected_activity_id"], row["mode"],
                         row["work_started_at"], now, seconds,
                         reason or ("finish_early" if row["mode"] == "focus" else "finish")))
+        if not save or seconds == 0:
+            db.execute("DELETE FROM work_segments WHERE session_id = ?", (row["session_id"],))
         db.execute("UPDATE timer_state SET phase = 'idle', active_ms = 0, active_seconds = 0, "
-                   "segment_monotonic_ns = NULL, boot_id = NULL, work_started_at = NULL, "
+                   "segment_monotonic_ns = NULL, segment_started_at = NULL, boot_id = NULL, "
+                   "work_started_at = NULL, "
                    "session_id = NULL, updated_at = ? WHERE singleton = 1", (now,))
         return {"saved": bool(save and seconds > 0), "active_seconds": seconds if save else 0,
                 "timer": timer_view(timer_row(db))}
@@ -316,16 +357,116 @@ def timer_complete(db, request):
         current_boot = boot_id()
         if row["boot_id"] != current_boot:
             db.execute("UPDATE timer_state SET phase = 'paused', segment_monotonic_ns = NULL, "
-                       "updated_at = ? WHERE singleton = 1", (utc_now(),))
+                       "segment_started_at = NULL, updated_at = ? WHERE singleton = 1", (utc_now(),))
             return {"completed": False, "timer": timer_view(timer_row(db))}
         total = elapsed_ms(row, now_ns, current_boot)
         if total < row["planned_seconds"] * 1000:
+            now = utc_now()
+            total = row["active_ms"] + record_segment(db, row, now, now_ns, current_boot)
             db.execute("UPDATE timer_state SET active_ms = ?, segment_monotonic_ns = ?, "
-                       "updated_at = ? WHERE singleton = 1", (total, now_ns, utc_now()))
+                       "segment_started_at = ?, updated_at = ? WHERE singleton = 1",
+                       (total, now_ns, now, now))
             return {"completed": False, "timer": timer_view(timer_row(db))}
     result = timer_stop(db, request, True, "completed")
     result["completed"] = result["saved"]
     return result
+
+
+def local_zone(request):
+    name = request.get("zone") or os.environ.get("TZ")
+    if name is None:
+        path = str(Path("/etc/localtime").resolve())
+        marker = "/zoneinfo/"
+        name = path.split(marker, 1)[1] if marker in path else None
+    if name is None:
+        return datetime.now().astimezone().tzinfo
+    if not isinstance(name, str) or not 1 <= len(name) <= 80:
+        raise RequestError("invalid_zone", "Invalid time zone")
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise RequestError("invalid_zone", "Unknown time zone") from None
+
+
+def day_bounds(request):
+    zone = local_zone(request)
+    raw_day = request.get("day")
+    if raw_day is None:
+        selected_day = datetime.now(zone).date()
+    elif isinstance(raw_day, str) and len(raw_day) == 10:
+        try:
+            selected_day = date.fromisoformat(raw_day)
+        except ValueError:
+            raise RequestError("invalid_day", "Day must be a valid ISO date") from None
+    else:
+        raise RequestError("invalid_day", "Day must be a valid ISO date")
+    start = datetime.combine(selected_day, datetime.min.time(), zone).astimezone(timezone.utc)
+    end = datetime.combine(selected_day + timedelta(days=1), datetime.min.time(), zone).astimezone(timezone.utc)
+    return selected_day.isoformat(), start, end
+
+
+def allocated_ms(started_at, ended_at, active_ms, start, end):
+    segment_start = datetime.fromisoformat(started_at)
+    segment_end = datetime.fromisoformat(ended_at)
+    if segment_end <= segment_start:
+        return active_ms if start <= segment_start < end else 0
+    left = max(start, segment_start)
+    right = min(end, segment_end)
+    if right <= left:
+        return 0
+    wall_us = (segment_end - segment_start) // timedelta(microseconds=1)
+    left_us = (left - segment_start) // timedelta(microseconds=1)
+    right_us = (right - segment_start) // timedelta(microseconds=1)
+    return active_ms * right_us // wall_us - active_ms * left_us // wall_us
+
+
+def day_summary(db, request):
+    day, start, end = day_bounds(request)
+    start_text = start.isoformat(timespec="milliseconds")
+    end_text = end.isoformat(timespec="milliseconds")
+    rows = db.execute(
+        "SELECT s.id, s.activity_id, a.name, a.icon, a.color, w.started_at, w.ended_at, "
+        "w.active_ms FROM work_segments w JOIN sessions s ON s.id = w.session_id "
+        "JOIN activities a ON a.id = s.activity_id "
+        "WHERE w.started_at < ? AND w.ended_at > ?",
+        (end_text, start_text),
+    ).fetchall()
+    legacy = db.execute(
+        "SELECT s.id, s.activity_id, a.name, a.icon, a.color, s.started_at, s.ended_at, "
+        "s.active_seconds * 1000 AS active_ms FROM sessions s "
+        "JOIN activities a ON a.id = s.activity_id "
+        "WHERE s.started_at < ? AND s.ended_at > ? "
+        "AND NOT EXISTS (SELECT 1 FROM work_segments w WHERE w.session_id = s.id)",
+        (end_text, start_text),
+    ).fetchall()
+    totals = {}
+    sessions = set()
+    for row in (*rows, *legacy):
+        portion = allocated_ms(row["started_at"], row["ended_at"], row["active_ms"], start, end)
+        if portion <= 0:
+            continue
+        sessions.add(row["id"])
+        entry = totals.setdefault(row["activity_id"], {
+            "activity_id": row["activity_id"], "name": row["name"], "icon": row["icon"],
+            "color": row["color"], "active_ms": 0,
+        })
+        entry["active_ms"] += portion
+    activities = sorted(totals.values(), key=lambda item: (-item["active_ms"], item["name"]))
+    return {"day": day, "total_ms": sum(item["active_ms"] for item in activities),
+            "session_count": len(sessions), "activities": activities}
+
+
+def recent_sessions(db, request):
+    limit = request.get("limit", 20)
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
+        raise RequestError("invalid_field", "History limit must be 1 to 50")
+    rows = db.execute(
+        "SELECT s.id, s.activity_id, a.name AS activity_name, a.icon, a.color, "
+        "s.mode, s.source, s.started_at, s.ended_at, s.active_seconds, s.note, s.reason "
+        "FROM sessions s JOIN activities a ON a.id = s.activity_id "
+        "ORDER BY s.started_at DESC, s.id DESC LIMIT ?", (limit,)
+    ).fetchall()
+    return {"sessions": [dict(row) for row in rows]}
 
 
 COMMANDS = {
@@ -343,6 +484,8 @@ COMMANDS = {
     "timer.finish": lambda db, request: timer_stop(db, request, True),
     "timer.discard": lambda db, request: timer_stop(db, request, False),
     "timer.complete": timer_complete,
+    "reports.day": day_summary,
+    "sessions.recent": recent_sessions,
 }
 
 
