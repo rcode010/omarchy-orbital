@@ -185,6 +185,22 @@ def select_activity(db, request):
     return {"selected_activity_id": activity_id}
 
 
+def delete_activity(db, request):
+    activity_id = text_field(request, "activity_id", 36)
+    with db:
+        if db.execute("SELECT 1 FROM activities WHERE id = ?", (activity_id,)).fetchone() is None:
+            raise RequestError("not_found", "Activity not found")
+        if db.execute("SELECT 1 FROM sessions WHERE activity_id = ? LIMIT 1", (activity_id,)).fetchone():
+            raise RequestError("history_exists", "Archive this activity to keep its history")
+        timer = timer_row(db)
+        if timer["selected_activity_id"] == activity_id and timer["phase"] != "idle":
+            raise RequestError("timer_active", "Finish or discard this activity's session first")
+        db.execute("UPDATE timer_state SET selected_activity_id = NULL "
+                   "WHERE singleton = 1 AND selected_activity_id = ?", (activity_id,))
+        db.execute("DELETE FROM activities WHERE id = ?", (activity_id,))
+    return {"activity_id": activity_id}
+
+
 def utc_now():
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
@@ -476,6 +492,7 @@ COMMANDS = {
     "activities.archive": lambda db, request: archive_activity(db, request, True),
     "activities.restore": lambda db, request: archive_activity(db, request, False),
     "activities.select": select_activity,
+    "activities.delete": delete_activity,
     "timer.load": timer_load,
     "timer.start": timer_start,
     "timer.pause": timer_pause,

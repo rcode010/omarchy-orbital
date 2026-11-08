@@ -4,7 +4,7 @@ Orbital is a local activity timer for the built-in Omarchy bar. Create recurring
 
 Repository: https://github.com/rcode010/omarchy-orbital
 
-This repository is under active development. The current build provides activity creation and selection, a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, durable SQLite sessions, saved Today totals by activity, and a short recent-session list. Full History editing, Insights, settings, and Pomodoro break flow are still in progress. Do not treat this build as a stable 1.0 release.
+This repository is under active development. The current build provides activity creation, selection, renaming, color/icon edits, archiving, restoring, and safe deletion of unused activities. It also provides a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, durable SQLite sessions, saved Today totals by activity, and a short recent-session list. Full History editing, Insights, settings, and Pomodoro break flow are still in progress. Do not treat this build as a stable 1.0 release.
 
 ## Requirements
 
@@ -14,6 +14,8 @@ This repository is under active development. The current build provides activity
 The plugin ID is `io.github.rcode010.omarchy-orbital`. Its service owns the timer and is shared by bar widgets on all monitors. The panel closes without stopping the service. The helper runs only for user actions and a checkpoint every 60 seconds while tracking; the display tick does not write to SQLite.
 
 Activity names are limited to 80 characters, and the current data protocol caps a library at 500 activities so UI responses remain bounded.
+
+Select an activity, then choose **Manage selected** to edit its name, icon, and color or archive it. Enable **Show archived** to restore an archived activity. Deletion requires a second click and is refused when the activity has saved history; archiving keeps that history intact.
 
 ## Development checkout
 

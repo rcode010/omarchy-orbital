@@ -207,6 +207,19 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertEqual(self.call("activities.list")["selected_activity_id"], activity_id)
         self.assertEqual(self.call("timer.checkpoint")["phase"], "paused")
 
+    def test_delete_refuses_history_and_allows_unused_activity(self):
+        used = self.call("activities.create", name="Study")["activity_id"]
+        unused = self.call("activities.create", name="One-off")["activity_id"]
+        with closing(orbital_db.connect(self.path)) as db, db:
+            db.execute("INSERT INTO sessions (id, activity_id, mode, source, started_at, ended_at, "
+                       "active_seconds, reason) VALUES ('saved', ?, 'focus', 'measured', ?, ?, 60, 'completed')",
+                       (used, "2026-11-08T12:00:00.000+00:00", "2026-11-08T12:01:00.000+00:00"))
+        with self.assertRaises(orbital_db.RequestError) as error:
+            self.call("activities.delete", activity_id=used)
+        self.assertEqual(error.exception.code, "history_exists")
+        self.call("activities.delete", activity_id=unused)
+        self.assertEqual([row["id"] for row in self.call("activities.list")["activities"]], [used])
+
 
 if __name__ == "__main__":
     unittest.main()

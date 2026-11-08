@@ -2,6 +2,7 @@ import QtQuick
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
+import "ui" as OrbitalUi
 
 Panel {
   id: root
@@ -13,6 +14,13 @@ Panel {
   property var service: null
   readonly property var barIdentity: hostWidget || root
   readonly property color foreground: bar ? bar.foreground : Commons.Color.foreground
+
+  function beginEdit(activity) {
+    editor.activity = activity
+    Qt.callLater(function() {
+      scroll.contentY = Math.max(0, Math.min(editor.y, scroll.contentHeight - scroll.height))
+    })
+  }
 
   KeyboardPanel {
     id: popup
@@ -32,6 +40,7 @@ Panel {
       Keys.onEscapePressed: root.close()
 
       Flickable {
+        id: scroll
         anchors.fill: parent
         contentWidth: width
         contentHeight: content.implicitHeight
@@ -226,7 +235,8 @@ Panel {
               anchors.leftMargin: Style.space(12)
               anchors.rightMargin: Style.space(80)
               verticalAlignment: Text.AlignVCenter
-              text: modelData.icon ? modelData.icon + "  " + modelData.name : modelData.name
+              text: (modelData.icon ? modelData.icon + "  " : "") + modelData.name
+                + (modelData.archived_at ? " · Archived" : "")
               elide: Text.ElideRight
               color: modelData.id === root.service.selectedActivityId
                 ? Commons.Color.background : root.foreground
@@ -248,10 +258,61 @@ Panel {
 
             MouseArea {
               anchors.fill: parent
+              enabled: root.service !== null
               cursorShape: Qt.PointingHandCursor
-              onClicked: root.service.submit("activities.select", { activity_id: modelData.id })
+              onClicked: {
+                if (modelData.archived_at) root.beginEdit(modelData)
+                else root.service.submit("activities.select", { activity_id: modelData.id })
+              }
             }
           }
+        }
+
+        Row {
+          spacing: Style.space(18)
+
+          Text {
+            text: "Manage selected"
+            color: Commons.Color.accent
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+
+            MouseArea {
+              anchors.fill: parent
+              enabled: root.service && root.service.selectedActivityId !== ""
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                for (var i = 0; i < root.service.activities.length; i++) {
+                  var activity = root.service.activities[i]
+                  if (activity.id === root.service.selectedActivityId) root.beginEdit(activity)
+                }
+              }
+            }
+          }
+
+          Text {
+            text: root.service && root.service.showArchived ? "Hide archived" : "Show archived"
+            color: root.foreground
+            opacity: 0.7
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+
+            MouseArea {
+              anchors.fill: parent
+              enabled: root.service !== null
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                root.service.showArchived = !root.service.showArchived
+                root.service.refresh()
+              }
+            }
+          }
+        }
+
+        OrbitalUi.ActivityEditor {
+          id: editor
+          service: root.service
+          onDone: editor.activity = null
         }
 
         Row {

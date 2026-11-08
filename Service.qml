@@ -15,6 +15,7 @@ QtObject {
   property var today: ({ day: "", total_ms: 0, session_count: 0, activities: [] })
   property var todayByActivity: ({})
   property var recentSessions: []
+  property bool showArchived: false
   property string selectedActivityId: ""
   property string errorMessage: ""
   property bool busy: false
@@ -79,7 +80,7 @@ QtObject {
   }
 
   function refresh() {
-    submit("activities.list", {})
+    submit("activities.list", { include_archived: showArchived })
   }
 
   function refreshReports() {
