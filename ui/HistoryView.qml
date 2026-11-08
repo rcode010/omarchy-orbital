@@ -323,11 +323,30 @@ Column {
     }
   }
 
-  ActionText {
-    visible: root.service && root.service.historyCursor !== null
-    text: "Load more"
-    enabled: root.service && !root.service.busy
-    onActivated: root.service.loadHistory(false)
+  Row {
+    visible: root.service && (root.service.historyCursor !== null
+                              || root.service.historyBackStack.length > 0)
+    spacing: Style.space(14)
+
+    ActionText {
+      text: "‹ Newer"
+      enabled: root.service && !root.service.busy && root.service.historyBackStack.length > 0
+      onActivated: root.service.newerHistory()
+    }
+
+    Text {
+      text: root.service ? "Page " + (root.service.historyBackStack.length + 1) : ""
+      color: Commons.Color.foreground
+      opacity: 0.65
+      font.family: Style.font.family
+      font.pixelSize: Style.font.body
+    }
+
+    ActionText {
+      text: "Older ›"
+      enabled: root.service && !root.service.busy && root.service.historyCursor !== null
+      onActivated: root.service.olderHistory()
+    }
   }
 
   Column {

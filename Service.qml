@@ -23,6 +23,8 @@ QtObject {
   property var historySessions: []
   property var historyActivities: []
   property var historyCursor: null
+  property var historyPageBefore: null
+  property var historyBackStack: []
   property string historyFilterId: ""
   property string historyStartDay: ""
   property string historyEndDay: ""
@@ -148,6 +150,8 @@ QtObject {
     if (reset) {
       historySessions = []
       historyCursor = null
+      historyPageBefore = null
+      historyBackStack = []
     }
     var request = { limit: 20 }
     if (historyFilterId) request.activity_id = historyFilterId
@@ -155,8 +159,22 @@ QtObject {
       request.start_day = historyStartDay
       request.end_day = historyEndDay
     }
-    if (!reset && historyCursor) request.before = historyCursor
+    if (historyPageBefore) request.before = historyPageBefore
     submit("sessions.list", request)
+  }
+
+  function olderHistory() {
+    if (busy || !historyCursor) return
+    historyBackStack = historyBackStack.concat([historyPageBefore])
+    historyPageBefore = historyCursor
+    loadHistory(false)
+  }
+
+  function newerHistory() {
+    if (busy || historyBackStack.length === 0) return
+    historyPageBefore = historyBackStack[historyBackStack.length - 1]
+    historyBackStack = historyBackStack.slice(0, -1)
+    loadHistory(false)
   }
 
   function loadHistoryActivities() {
@@ -228,8 +246,7 @@ QtObject {
       } else if (activeRequest.command === "sessions.recent") {
         recentSessions = parsed.result.sessions
       } else if (activeRequest.command === "sessions.list") {
-        historySessions = activeRequest.before
-          ? historySessions.concat(parsed.result.sessions) : parsed.result.sessions
+        historySessions = parsed.result.sessions
         historyCursor = parsed.result.next_cursor
       } else if (activeRequest.command === "reports.period") {
         insightsReport = parsed.result
