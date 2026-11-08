@@ -180,7 +180,7 @@ def run(request, path=None):
 
 
 def main():
-    raw = sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
+    raw = sys.argv[1].encode() if len(sys.argv) == 2 else sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
     try:
         if len(raw) > MAX_REQUEST_BYTES:
             raise RequestError("request_too_large", "Request exceeds size limit")
