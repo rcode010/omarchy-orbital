@@ -21,6 +21,7 @@ QtObject {
   property var todayByActivity: ({})
   property var recentSessions: []
   property var historySessions: []
+  property var historyActivities: []
   property var historyCursor: null
   property string historyFilterId: ""
   property string historyStartDay: ""
@@ -148,6 +149,10 @@ QtObject {
     submit("sessions.list", request)
   }
 
+  function loadHistoryActivities() {
+    submit("activities.list", { include_archived: true, for_history: true })
+  }
+
   function loadInsights() {
     var request = { period: insightsPeriod }
     if (insightsPeriod !== "today" && insightsAnchor) request.anchor = insightsAnchor
@@ -183,11 +188,15 @@ QtObject {
       errorMessage = ""
       errorCode = ""
       if (activeRequest.command === "activities.list") {
-        activities = parsed.result.activities
-        selectedActivityId = parsed.result.selected_activity_id || ""
-        activityName = ""
-        for (var i = 0; i < activities.length; i++) {
-          if (activities[i].id === selectedActivityId) activityName = activities[i].name
+        if (activeRequest.for_history) {
+          historyActivities = parsed.result.activities
+        } else {
+          activities = parsed.result.activities
+          selectedActivityId = parsed.result.selected_activity_id || ""
+          activityName = ""
+          for (var i = 0; i < activities.length; i++) {
+            if (activities[i].id === selectedActivityId) activityName = activities[i].name
+          }
         }
       } else if (activeRequest.command.indexOf("timer.") === 0) {
         applyTimer(parsed.result.timer || parsed.result)

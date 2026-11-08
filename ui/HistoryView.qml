@@ -11,6 +11,7 @@ Column {
   property string rangeError: ""
   property bool confirmDelete: false
   property bool allowOverlap: false
+  property bool filterOpen: false
 
   width: parent ? parent.width : 0
   spacing: Style.space(10)
@@ -74,6 +75,15 @@ Column {
     return "Unknown activity"
   }
 
+  function filterName() {
+    if (!service || !service.historyFilterId) return "All activities"
+    for (var i = 0; i < service.historyActivities.length; i++) {
+      if (service.historyActivities[i].id === service.historyFilterId)
+        return service.historyActivities[i].name
+    }
+    return "Selected activity"
+  }
+
   function applyRange() {
     var start = rangeStart.text.trim()
     var end = rangeEnd.text.trim()
@@ -107,18 +117,41 @@ Column {
   Row {
     spacing: Style.space(14)
 
-    Repeater {
-      model: ["All activities", "Selected activity"]
+    ActionText {
+      text: "Activity: " + root.filterName() + "  ▾"
+      onActivated: root.filterOpen = !root.filterOpen
+    }
 
-      ActionText {
-        required property string modelData
-        text: modelData
-        opacity: root.service && ((modelData === "All activities") === (root.service.historyFilterId === "")) ? 1 : 0.5
-        enabled: root.service && (modelData === "All activities" || root.service.selectedActivityId !== "")
-        onActivated: {
-          root.service.historyFilterId = modelData === "All activities" ? "" : root.service.selectedActivityId
-          root.service.loadHistory(true)
-        }
+    ActionText {
+      visible: root.service && root.service.historyFilterId !== ""
+      text: "Clear"
+      onActivated: {
+        root.service.historyFilterId = ""
+        root.service.loadHistory(true)
+      }
+    }
+  }
+
+  ListView {
+    visible: root.filterOpen
+    width: root.width
+    height: visible ? Math.min(contentHeight, Style.space(140)) : 0
+    clip: true
+    spacing: Style.space(5)
+    boundsBehavior: Flickable.StopAtBounds
+    model: root.service ? root.service.historyActivities : []
+
+    delegate: ActionText {
+      required property var modelData
+      width: ListView.view.width
+      text: (modelData.icon ? modelData.icon + "  " : "") + modelData.name
+        + (modelData.archived_at ? " · Archived" : "")
+      elide: Text.ElideRight
+      color: Commons.Color.foreground
+      onActivated: {
+        root.service.historyFilterId = modelData.id
+        root.filterOpen = false
+        root.service.loadHistory(true)
       }
     }
   }
@@ -230,7 +263,7 @@ Column {
       spacing: Style.space(8)
 
       Column {
-        width: parent.width * 0.48
+        width: parent.width * 0.55
         spacing: Style.space(3)
 
         Text {
@@ -242,17 +275,41 @@ Column {
         }
 
         Text {
+          width: parent.width
           text: Qt.formatDateTime(new Date(modelData.started_at), "MMM d · HH:mm")
-            + " · " + modelData.source
+          elide: Text.ElideRight
           color: Commons.Color.foreground
           opacity: 0.6
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+
+        Text {
+          width: parent.width
+          text: modelData.mode + " · " + modelData.source
+          elide: Text.ElideRight
+          color: Commons.Color.foreground
+          opacity: 0.6
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+
+        Text {
+          visible: modelData.note !== ""
+          width: parent.width
+          text: modelData.note
+          wrapMode: Text.WordWrap
+          maximumLineCount: 2
+          elide: Text.ElideRight
+          color: Commons.Color.foreground
+          opacity: 0.75
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
         }
       }
 
       Text {
-        width: parent.width * 0.25
+        width: parent.width * 0.23
         text: root.service.formatDuration(modelData.active_seconds * 1000)
         color: Commons.Color.foreground
         font.family: Style.font.family

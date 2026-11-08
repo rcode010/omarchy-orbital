@@ -280,6 +280,10 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertEqual(len(second_page["sessions"]), 1)
         self.assertIsNone(second_page["next_cursor"])
         self.assertEqual(len(self.call("sessions.list", activity_id=first)["sessions"]), 2)
+        self.call("activities.archive", activity_id=first)
+        archived = self.call("activities.list", include_archived=True)["activities"]
+        self.assertIn(first, [activity["id"] for activity in archived])
+        self.assertEqual(len(self.call("sessions.list", activity_id=first)["sessions"]), 2)
 
     def test_history_calendar_range_includes_overnight_sessions(self):
         activity_id = self.call("activities.create", name="Study")["activity_id"]

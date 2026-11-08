@@ -27,7 +27,10 @@ Panel {
     page = nextPage
     scroll.contentY = 0
     if (!service) return
-    if (page === "history") service.loadHistory(true)
+    if (page === "history") {
+      service.loadHistoryActivities()
+      service.loadHistory(true)
+    }
     if (page === "insights") service.loadInsights()
     if (page === "settings") service.loadBackups()
   }
