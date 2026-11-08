@@ -66,42 +66,42 @@ def connect(path):
 
 
 def migrate(db):
-    with db:
+    db.execute("BEGIN IMMEDIATE")
+    try:
         db.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY)")
         version = db.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").fetchone()[0]
         if version > 4:
             raise RequestError("unsupported_schema", "Orbital data requires a newer version")
         if version == 0:
-            db.executescript("""
-                CREATE TABLE activities (
-                    id TEXT PRIMARY KEY, name TEXT NOT NULL, icon TEXT NOT NULL DEFAULT '',
-                    color TEXT NOT NULL, sort_order INTEGER NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, archived_at TEXT
-                );
-                CREATE TABLE sessions (
-                    id TEXT PRIMARY KEY, activity_id TEXT NOT NULL REFERENCES activities(id),
-                    mode TEXT NOT NULL, source TEXT NOT NULL, started_at TEXT NOT NULL,
-                    ended_at TEXT NOT NULL, active_seconds INTEGER NOT NULL CHECK (active_seconds >= 0),
-                    note TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
-                CREATE INDEX sessions_by_start ON sessions(started_at);
-                CREATE INDEX sessions_by_activity_start ON sessions(activity_id, started_at);
-                CREATE TABLE timer_state (
-                    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-                    selected_activity_id TEXT REFERENCES activities(id),
-                    mode TEXT NOT NULL DEFAULT 'focus', phase TEXT NOT NULL DEFAULT 'idle',
-                    active_seconds INTEGER NOT NULL DEFAULT 0, segment_started_at TEXT,
-                    session_id TEXT, planned_seconds INTEGER NOT NULL DEFAULT 1500,
-                    cycle_count INTEGER NOT NULL DEFAULT 0,
-                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
-                INSERT INTO timer_state (singleton) VALUES (1);
-                CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-                INSERT INTO schema_migrations (version) VALUES (1);
-            """)
+            statements = (
+                "CREATE TABLE activities ("
+                "id TEXT PRIMARY KEY, name TEXT NOT NULL, icon TEXT NOT NULL DEFAULT '', "
+                "color TEXT NOT NULL, sort_order INTEGER NOT NULL, "
+                "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, archived_at TEXT)",
+                "CREATE TABLE sessions ("
+                "id TEXT PRIMARY KEY, activity_id TEXT NOT NULL REFERENCES activities(id), "
+                "mode TEXT NOT NULL, source TEXT NOT NULL, started_at TEXT NOT NULL, "
+                "ended_at TEXT NOT NULL, active_seconds INTEGER NOT NULL CHECK (active_seconds >= 0), "
+                "note TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL, "
+                "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+                "CREATE INDEX sessions_by_start ON sessions(started_at)",
+                "CREATE INDEX sessions_by_activity_start ON sessions(activity_id, started_at)",
+                "CREATE TABLE timer_state ("
+                "singleton INTEGER PRIMARY KEY CHECK (singleton = 1), "
+                "selected_activity_id TEXT REFERENCES activities(id), "
+                "mode TEXT NOT NULL DEFAULT 'focus', phase TEXT NOT NULL DEFAULT 'idle', "
+                "active_seconds INTEGER NOT NULL DEFAULT 0, segment_started_at TEXT, "
+                "session_id TEXT, planned_seconds INTEGER NOT NULL DEFAULT 1500, "
+                "cycle_count INTEGER NOT NULL DEFAULT 0, "
+                "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+                "INSERT INTO timer_state (singleton) VALUES (1)",
+                "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+                "INSERT INTO schema_migrations (version) VALUES (1)",
+            )
+            for statement in statements:
+                db.execute(statement)
         if version < 2:
             db.execute("ALTER TABLE timer_state ADD COLUMN active_ms INTEGER NOT NULL DEFAULT 0")
             db.execute("ALTER TABLE timer_state ADD COLUMN segment_monotonic_ns INTEGER")
@@ -118,6 +118,10 @@ def migrate(db):
         if version < 4:
             db.execute("ALTER TABLE timer_state ADD COLUMN break_kind TEXT")
             db.execute("INSERT INTO schema_migrations (version) VALUES (4)")
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 def text_field(request, field, limit, default=None, optional=False):

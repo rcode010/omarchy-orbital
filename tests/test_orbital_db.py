@@ -69,6 +69,14 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertEqual(len(set(ids)), 24)
         self.assertEqual(len(self.call("activities.list")["activities"]), 25)
 
+    def test_concurrent_first_open_migrates_once(self):
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(lambda _: self.call("activities.list"), range(16)))
+        self.assertEqual(len(results), 16)
+        with closing(orbital_db.connect(self.path)) as db:
+            versions = [row[0] for row in db.execute("SELECT version FROM schema_migrations ORDER BY version")]
+        self.assertEqual(versions, [1, 2, 3, 4])
+
     def test_corrupt_database_is_reported_without_replacement(self):
         self.path.parent.mkdir(parents=True)
         self.path.write_bytes(b"damaged Orbital database")
