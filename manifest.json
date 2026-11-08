@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.rcode010.omarchy-orbital",
+  "name": "Orbital",
+  "version": "0.1.0",
+  "author": "rcode010",
+  "description": "Local activity timing and insights for Omarchy",
+  "kinds": ["service", "bar-widget"],
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Orbital",
+    "description": "Activity timer and dashboard",
+    "category": "Time",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}
