@@ -55,7 +55,7 @@ The stored session rows include UTC start/end times and active seconds. New meas
 
 ## Current keyboard behavior
 
-Press Escape to close the panel. Ctrl+1, Ctrl+2, Ctrl+3, and Ctrl+4 open Home, Insights, History, and Settings. Page Up and Page Down scroll longer pages. Space starts, pauses, or resumes the current focus, stopwatch, or break phase. F finishes the current work session. Tab reaches the timer buttons, visible activity rows, chart bars, text fields, and text actions; Enter or Space activates a focused action. Enter adds a new activity from its name field. Live focus-order and screen-reader checks remain before 1.0.
+Press Escape to close the panel. Ctrl+1, Ctrl+2, Ctrl+3, and Ctrl+4 open Home, Insights, History, and Settings. Space starts, pauses, or resumes the current focus, stopwatch, or break phase. F finishes the current work session. Tab reaches the timer buttons, visible activity rows, chart bars, text fields, and text actions; Enter or Space activates a focused action. Enter adds a new activity from its name field. Live focus-order and screen-reader checks remain before 1.0.
 
 ## Development status
 

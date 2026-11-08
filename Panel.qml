@@ -88,13 +88,6 @@ Panel {
                    && root.service && (root.service.phase === "running" || root.service.phase === "paused")) {
           root.perform("Finish")
           event.accepted = true
-        } else if (event.modifiers === Qt.NoModifier && event.key === Qt.Key_PageDown) {
-          scroll.contentY = Math.min(Math.max(0, scroll.contentHeight - scroll.height),
-                                     scroll.contentY + scroll.height * 0.8)
-          event.accepted = true
-        } else if (event.modifiers === Qt.NoModifier && event.key === Qt.Key_PageUp) {
-          scroll.contentY = Math.max(0, scroll.contentY - scroll.height * 0.8)
-          event.accepted = true
         }
       }
 
