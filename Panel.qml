@@ -3,6 +3,7 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 import "ui" as OrbitalUi
+import "ui/ActivityColors.js" as ActivityColors
 
 Panel {
   id: root
@@ -304,6 +305,16 @@ Panel {
               ? Commons.Color.accent : "transparent"
             border.color: activeFocus ? Commons.Color.accent : root.foreground
             border.width: activeFocus ? 2 : (modelData.id === root.service.selectedActivityId ? 0 : 1)
+
+            Rectangle {
+              anchors.left: parent.left
+              anchors.leftMargin: Style.space(4)
+              anchors.verticalCenter: parent.verticalCenter
+              width: Style.space(3)
+              height: parent.height - Style.space(14)
+              radius: width / 2
+              color: ActivityColors.value(modelData.color)
+            }
 
             Text {
               anchors.fill: parent

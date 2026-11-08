@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import qs.Commons as Commons
+import "ActivityColors.js" as ActivityColors
 
 Column {
   id: root
@@ -10,16 +11,7 @@ Column {
   property bool confirmDelete: false
   signal done()
 
-  readonly property var palette: [
-    { name: "blue", value: "#5b9cff" },
-    { name: "cyan", value: "#45c7d9" },
-    { name: "green", value: "#6ac889" },
-    { name: "amber", value: "#e6bc5c" },
-    { name: "orange", value: "#ed9863" },
-    { name: "purple", value: "#ad8df0" },
-    { name: "pink", value: "#e68fba" },
-    { name: "red", value: "#e77b78" }
-  ]
+  readonly property var palette: ActivityColors.palette
 
   visible: activity !== null
   width: parent ? parent.width : 0

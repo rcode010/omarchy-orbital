@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import qs.Commons as Commons
+import "ActivityColors.js" as ActivityColors
 
 Column {
   id: root
@@ -247,9 +248,18 @@ Column {
 
       Row {
         width: parent.width
+        spacing: Style.space(6)
+
+        Rectangle {
+          anchors.verticalCenter: parent.verticalCenter
+          width: Style.space(7)
+          height: width
+          radius: width / 2
+          color: ActivityColors.value(modelData.color)
+        }
 
         Text {
-          width: parent.width * 0.7
+          width: parent.width * 0.7 - Style.space(13)
           text: (modelData.icon ? modelData.icon + "  " : "") + modelData.name
           elide: Text.ElideRight
           color: Commons.Color.foreground
@@ -280,7 +290,7 @@ Column {
           width: root.report.total_ms > 0 ? parent.width * modelData.active_ms / root.report.total_ms : 0
           height: parent.height
           radius: height / 2
-          color: Commons.Color.accent
+          color: ActivityColors.value(modelData.color)
         }
       }
     }
