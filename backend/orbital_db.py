@@ -271,7 +271,7 @@ def settings_update(db, request):
 def restore_backup(db, request):
     if timer_row(db)["phase"] != "idle":
         raise RequestError("timer_active", "Finish or discard the timer before restoring data")
-    result = backup.restore(db, request.get("name"), lambda source: settings_get(source, request))
+    result = backup.restore(db, request.get("name"), validate_restored_data)
     row = timer_row(db)
     if row["phase"] in ("running", "break_running"):
         paused = "paused" if row["phase"] == "running" else "break_paused"
@@ -280,6 +280,36 @@ def restore_backup(db, request):
                        "segment_started_at = NULL, updated_at = ? WHERE singleton = 1",
                        (paused, utc_now()))
     return result
+
+
+def validate_restored_data(source):
+    settings_get(source, {})
+    rows = source.execute("SELECT * FROM timer_state").fetchall()
+    if len(rows) != 1:
+        raise RequestError("invalid_backup", "Backup has invalid timer state")
+    timer = rows[0]
+    required_columns = {"singleton", "phase", "mode", "planned_seconds", "active_ms", "cycle_count",
+                        "session_id", "break_kind"}
+    if not required_columns.issubset(timer.keys()):
+        raise RequestError("invalid_backup", "Backup has incomplete timer schema")
+    if timer["singleton"] != 1:
+        raise RequestError("invalid_backup", "Backup has invalid timer state")
+    if (timer["phase"] not in ("idle", "running", "paused", "break_ready", "break_running", "break_paused")
+            or timer["mode"] not in ("focus", "stopwatch")
+            or not isinstance(timer["planned_seconds"], int) or not 60 <= timer["planned_seconds"] <= 14400
+            or not isinstance(timer["active_ms"], int) or timer["active_ms"] < 0
+            or not isinstance(timer["cycle_count"], int) or timer["cycle_count"] < 0):
+        raise RequestError("invalid_backup", "Backup has invalid timer state")
+    if timer["phase"] in ("running", "paused") and not timer["session_id"]:
+        raise RequestError("invalid_backup", "Backup has incomplete work state")
+    if timer["phase"].startswith("break") and timer["break_kind"] not in ("short", "long"):
+        raise RequestError("invalid_backup", "Backup has incomplete break state")
+    orphan = source.execute(
+        "SELECT 1 FROM work_segments w LEFT JOIN sessions s ON s.id = w.session_id "
+        "WHERE s.id IS NULL AND w.session_id != ? LIMIT 1", (timer["session_id"] or "",)
+    ).fetchone()
+    if orphan:
+        raise RequestError("invalid_backup", "Backup contains orphaned work segments")
 
 
 def utc_now():

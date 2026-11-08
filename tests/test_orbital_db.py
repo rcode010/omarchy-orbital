@@ -472,6 +472,32 @@ class ActivityStorageTests(unittest.TestCase):
         self.assertEqual(self.call("activities.list")["activities"][0]["id"], activity_id)
         self.assertEqual(len(self.call("backup.list")["backups"]), 1)
 
+    def test_backup_with_invalid_timer_state_cannot_replace_live_data(self):
+        activity_id = self.call("activities.create", name="Keep me")["activity_id"]
+        name = self.call("backup.create")["name"]
+        backup_file = self.path.parent / "backups" / name
+        with closing(sqlite3.connect(backup_file)) as source:
+            with source:
+                source.execute("UPDATE timer_state SET phase = 'unknown' WHERE singleton = 1")
+        with self.assertRaises(orbital_db.RequestError) as error:
+            self.call("backup.restore", name=name)
+        self.assertEqual(error.exception.code, "invalid_backup")
+        self.assertEqual(self.call("activities.list")["activities"][0]["id"], activity_id)
+        self.assertEqual(len(self.call("backup.list")["backups"]), 1)
+
+    def test_backup_with_orphaned_segments_cannot_replace_live_data(self):
+        self.call("activities.create", name="Keep me")
+        name = self.call("backup.create")["name"]
+        backup_file = self.path.parent / "backups" / name
+        with closing(sqlite3.connect(backup_file)) as source:
+            with source:
+                source.execute("INSERT INTO work_segments VALUES "
+                               "('missing', '2025-01-01T00:00:00+00:00', "
+                               "'2025-01-01T00:01:00+00:00', 60000)")
+        with self.assertRaises(orbital_db.RequestError) as error:
+            self.call("backup.restore", name=name)
+        self.assertEqual(error.exception.code, "invalid_backup")
+
     def test_json_export_contains_real_history(self):
         activity_id = self.call("activities.create", name="Reading")["activity_id"]
         self.call("sessions.add_manual", activity_id=activity_id,
