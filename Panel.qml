@@ -48,9 +48,6 @@ Panel {
     else if (action === "Start Break") service.submit("timer.start_break", {})
     else if (action === "Skip Break") service.submit("timer.skip_break", {})
     else service.submit("timer.finish", {})
-    Qt.callLater(function() {
-      if (root.opened) keyCatcher.forceActiveFocus()
-    })
   }
 
   function primaryAction() {
@@ -406,6 +403,12 @@ Panel {
         Connections {
           target: root.service
           function onRequestFinished(command, success) {
+            if (success && ["timer.start", "timer.pause", "timer.resume", "timer.finish",
+                            "timer.discard", "timer.start_break", "timer.skip_break"].indexOf(command) !== -1) {
+              Qt.callLater(function() {
+                if (root.opened) keyCatcher.forceActiveFocus()
+              })
+            }
             if (command !== "activities.create" || root.pendingNewActivityName === "") return
             if (success) {
               if (activityInput.text.trim() === root.pendingNewActivityName) activityInput.text = ""
