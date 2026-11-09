@@ -60,6 +60,15 @@ Panel {
     else if (service.phase === "break_running") perform("Pause Break")
   }
 
+  function restorePanelFocus() {
+    if (!opened) return
+    popup.focusPrimed = false
+    popup.beginFocusPrime()
+    Qt.callLater(function() {
+      if (root.opened) keyCatcher.forceActiveFocus()
+    })
+  }
+
   KeyboardPanel {
     id: popup
     anchorItem: root.anchorItem
@@ -425,6 +434,9 @@ Panel {
         Connections {
           target: root.service
           function onRequestFinished(command, success) {
+            if (success && ["timer.start", "timer.pause", "timer.resume", "timer.finish",
+                            "timer.discard", "timer.start_break", "timer.skip_break"].indexOf(command) !== -1)
+              root.restorePanelFocus()
             if (command !== "activities.create" || root.pendingNewActivityName === "") return
             if (success) {
               if (activityInput.text.trim() === root.pendingNewActivityName) activityInput.text = ""
