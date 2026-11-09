@@ -61,4 +61,4 @@ Press Escape to close the panel. Ctrl+1, Ctrl+2, Ctrl+3, and Ctrl+4 open Home, I
 
 ## Development status
 
-The committed checkout has passed automated storage, timer display, and manifest checks. Live testing on 2026-11-09 covered page rendering, keyboard shortcuts, a disposable stopwatch run, removal and data survival, and a second bar instance on a temporary headless output. A privacy-safe screenshot is included above. Focus and break completion, notifications, idle behavior, screen reader inspection, two physical displays, and shell performance comparison remain open. No stable public release has been published.
+The committed checkout has passed automated storage, timer display, and manifest checks. Live testing on 2026-11-09 covered page rendering, keyboard shortcuts, a disposable stopwatch run, removal and data survival, a second bar instance on a temporary headless output, and short shell performance samples. A privacy-safe screenshot is included above. Focus and break completion, notifications, idle behavior, screen reader inspection, and two physical displays remain open. No stable public release has been published.
