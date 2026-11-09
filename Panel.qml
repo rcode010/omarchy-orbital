@@ -115,6 +115,7 @@ Panel {
           spacing: Style.space(16)
 
           Repeater {
+            id: pageTabs
             model: ["Home", "Insights", "History", "Settings"]
 
             OrbitalUi.ActionText {
@@ -406,7 +407,7 @@ Panel {
             if (success && ["timer.start", "timer.pause", "timer.resume", "timer.finish",
                             "timer.discard", "timer.start_break", "timer.skip_break"].indexOf(command) !== -1) {
               Qt.callLater(function() {
-                if (root.opened) keyCatcher.forceActiveFocus()
+                if (root.opened && pageTabs.itemAt(0)) pageTabs.itemAt(0).forceActiveFocus()
               })
             }
             if (command !== "activities.create" || root.pendingNewActivityName === "") return
