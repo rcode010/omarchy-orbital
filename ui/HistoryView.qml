@@ -133,6 +133,7 @@ Column {
   }
 
   ListView {
+    id: activityFilterList
     visible: root.filterOpen
     width: root.width
     height: visible ? Math.min(contentHeight, Style.space(140)) : 0
@@ -143,11 +144,13 @@ Column {
 
     delegate: ActionText {
       required property var modelData
+      required property int index
       width: ListView.view.width
       text: (modelData.icon ? modelData.icon + "  " : "") + modelData.name
         + (modelData.archived_at ? " · Archived" : "")
       elide: Text.ElideRight
       color: Commons.Color.foreground
+      onActiveFocusChanged: if (activeFocus) activityFilterList.positionViewAtIndex(index, ListView.Contain)
       onActivated: {
         root.service.historyFilterId = modelData.id
         root.filterOpen = false
@@ -252,6 +255,7 @@ Column {
   }
 
   ListView {
+    id: sessionList
     width: root.width
     height: Math.min(contentHeight, Style.space(240))
     clip: true
@@ -261,6 +265,7 @@ Column {
 
     delegate: Row {
       required property var modelData
+      required property int index
       width: root.width
       spacing: Style.space(8)
 
@@ -320,6 +325,7 @@ Column {
 
       ActionText {
         text: "Edit"
+        onActiveFocusChanged: if (activeFocus) sessionList.positionViewAtIndex(index, ListView.Contain)
         onActivated: root.beginEdit(modelData)
       }
     }

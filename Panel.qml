@@ -69,6 +69,23 @@ Panel {
     })
   }
 
+  function ensureFocusedControlVisible() {
+    var window = keyCatcher.Window.window
+    if (!opened || !window || !window.activeFocusItem) return
+    var focused = window.activeFocusItem
+    var ancestor = focused
+    while (ancestor && ancestor !== scroll.contentItem) ancestor = ancestor.parent
+    if (!ancestor) return
+    var top = focused.mapToItem(scroll.contentItem, 0, 0).y
+    var bottom = top + focused.height
+    var margin = Style.space(8)
+    var maximum = Math.max(0, scroll.contentHeight - scroll.height)
+    if (top < scroll.contentY + margin)
+      scroll.contentY = Math.max(0, top - margin)
+    else if (bottom > scroll.contentY + scroll.height - margin)
+      scroll.contentY = Math.min(maximum, bottom + margin - scroll.height)
+  }
+
   KeyboardPanel {
     id: popup
     anchorItem: root.anchorItem
@@ -85,6 +102,12 @@ Panel {
       anchors.fill: parent
       focus: true
       Keys.onEscapePressed: root.close()
+
+      Connections {
+        target: keyCatcher.Window.window
+        function onActiveFocusItemChanged() { Qt.callLater(root.ensureFocusedControlVisible) }
+      }
+
       Keys.onPressed: function(event) {
         if (event.modifiers === Qt.NoModifier && event.key === Qt.Key_Space) {
           root.primaryAction()
@@ -331,10 +354,12 @@ Panel {
           delegate: Rectangle {
             id: activityRow
             required property var modelData
+            required property int index
             width: ListView.view.width
             height: Style.space(42)
             radius: Style.space(9)
             activeFocusOnTab: true
+            onActiveFocusChanged: if (activeFocus) ListView.view.positionViewAtIndex(index, ListView.Contain)
             Accessible.role: Accessible.Button
             Accessible.name: modelData.name + (modelData.archived_at ? ", archived, manage" : ", select")
             Keys.onReturnPressed: activate()

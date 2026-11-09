@@ -214,6 +214,7 @@ Column {
   }
 
   ListView {
+    id: backupList
     width: root.width
     height: Math.min(Style.space(176), count * Style.space(44))
     clip: true
@@ -222,6 +223,7 @@ Column {
 
     delegate: Row {
       required property var modelData
+      required property int index
       width: ListView.view.width
       height: Style.space(40)
       spacing: Style.space(10)
@@ -239,6 +241,7 @@ Column {
         id: restoreText
         text: root.confirmingRestoreName === modelData.name ? "Confirm restore" : "Restore"
         enabled: !!root.service && !root.service.busy && root.service.phase === "idle"
+        onActiveFocusChanged: if (activeFocus) backupList.positionViewAtIndex(index, ListView.Contain)
         onActivated: {
           if (root.confirmingRestoreName === modelData.name) {
             root.service.submit("backup.restore", { name: modelData.name })
