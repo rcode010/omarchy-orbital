@@ -160,7 +160,7 @@ Panel {
         }
 
         Text {
-          visible: root.service && root.service.errorMessage !== ""
+          visible: root.service !== null && root.service.errorMessage !== ""
           width: content.width
           wrapMode: Text.WordWrap
           text: root.service ? root.service.errorMessage : ""
@@ -170,9 +170,9 @@ Panel {
         }
 
         OrbitalUi.ActionText {
-          visible: root.service && root.service.errorMessage !== ""
+          visible: root.service !== null && root.service.errorMessage !== ""
           text: "Refresh state"
-          enabled: root.service && !root.service.busy
+          enabled: root.service !== null && !root.service.busy
           onActivated: root.service.reloadState()
         }
 
@@ -213,7 +213,7 @@ Panel {
         }
 
         Row {
-          visible: root.service && root.service.activities.length > 0 && root.service.phase === "idle"
+          visible: root.service !== null && root.service.activities.length > 0 && root.service.phase === "idle"
           spacing: Style.space(12)
 
           Repeater {
@@ -225,7 +225,7 @@ Panel {
               color: root.foreground
               opacity: root.service && root.service.mode === modelData ? 1 : 0.5
               font.weight: root.service && root.service.mode === modelData ? Font.DemiBold : Font.Normal
-              enabled: root.service && root.service.phase === "idle"
+              enabled: root.service !== null && root.service.phase === "idle"
               onActivated: root.service.mode = modelData
             }
           }
@@ -253,7 +253,7 @@ Panel {
         }
 
         Text {
-          visible: root.service && root.service.activities.length > 0
+          visible: root.service !== null && root.service.activities.length > 0
           text: root.service ? root.service.formatTime(
             root.service.phase.indexOf("break") === 0
               ? Math.max(0, root.service.plannedSeconds - root.service.elapsedSeconds)
@@ -267,7 +267,7 @@ Panel {
         }
 
         Text {
-          visible: root.service && root.service.phase !== "idle"
+          visible: root.service !== null && root.service.phase !== "idle"
           text: root.service
             ? (root.service.phase === "paused" ? "Paused · active time saved"
                : root.service.phase === "break_ready" ? "Ready for a " + root.service.breakKind + " break"
@@ -281,7 +281,7 @@ Panel {
         }
 
         Row {
-          visible: root.service && root.service.activities.length > 0
+          visible: root.service !== null && root.service.activities.length > 0
           spacing: Style.space(8)
 
           Repeater {
@@ -304,7 +304,7 @@ Panel {
               active: index === 0
               focusable: true
               bordered: modelData === "Discard" || modelData === "Skip Break"
-              enabled: root.service && !root.service.busy
+              enabled: root.service !== null && !root.service.busy
               foreground: root.foreground
               accent: Commons.Color.accent
               onClicked: root.perform(modelData)
@@ -389,7 +389,7 @@ Panel {
 
             MouseArea {
               anchors.fill: parent
-              enabled: root.service && (modelData.archived_at || root.service.phase === "idle")
+              enabled: root.service !== null && (modelData.archived_at || root.service.phase === "idle")
               cursorShape: Qt.PointingHandCursor
               onClicked: {
                 activityRow.forceActiveFocus()
@@ -404,7 +404,7 @@ Panel {
 
           OrbitalUi.ActionText {
             text: "Manage selected"
-            enabled: root.service && root.service.selectedActivityId !== ""
+            enabled: root.service !== null && root.service.selectedActivityId !== ""
             onActivated: {
               for (var i = 0; i < root.service.activities.length; i++) {
                 var activity = root.service.activities[i]
@@ -494,7 +494,7 @@ Panel {
             activeFocusOnTab: true
             Accessible.role: Accessible.Button
             Accessible.name: "Add activity"
-            enabled: root.service && !root.service.busy
+            enabled: root.service !== null && !root.service.busy
             border.color: activeFocus ? root.foreground : "transparent"
             border.width: activeFocus ? 2 : 0
             Keys.onReturnPressed: function(event) {
@@ -553,7 +553,7 @@ Panel {
         }
 
         Text {
-          visible: root.service && root.service.recentSessions.length > 0
+          visible: root.service !== null && root.service.recentSessions.length > 0
           text: "RECENT SESSIONS"
           color: root.foreground
           opacity: 0.6

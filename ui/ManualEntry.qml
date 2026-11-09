@@ -249,7 +249,7 @@ Column {
     visible: root.expanded
     text: "Save missed time"
     font.weight: Font.DemiBold
-    enabled: root.service && !root.service.busy
+    enabled: root.service !== null && !root.service.busy
     onActivated: root.submit()
   }
 }

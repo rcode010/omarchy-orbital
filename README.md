@@ -2,6 +2,8 @@
 
 Orbital is a local activity timer for the built-in Omarchy bar. Create recurring activities, select one, and track real active time with a focus countdown or stopwatch.
 
+![Orbital Settings panel running in Omarchy](docs/orbital-settings.png)
+
 Repository: https://github.com/rcode010/omarchy-orbital
 
 This repository is under active development. The current build provides activity creation, selection, renaming, color/icon edits, archiving, restoring, and safe deletion of unused activities. It also provides a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, short/long breaks, durable SQLite sessions, saved Today totals by activity, an Add Missed Time form, paged History with correction and deletion, and Today/Day/Week/Month/Year Insights. Timer, notification, and idle preferences, plus local backup and restore controls, are available in Settings. Full accessibility and live Omarchy verification are still in progress. Do not treat this build as a stable 1.0 release.

@@ -106,7 +106,7 @@ Column {
         color: modelData === "Save" ? Commons.Color.accent : Commons.Color.foreground
         opacity: modelData === "Delete" ? 0.65 : 1
         font.weight: Font.DemiBold
-        enabled: root.service && !root.service.busy
+        enabled: root.service !== null && !root.service.busy
         onActivated: {
           if (modelData === "Save") {
             root.pendingCommand = "activities.update"
