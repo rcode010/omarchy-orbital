@@ -76,6 +76,13 @@ Panel {
       anchors.fill: parent
       focus: true
       Keys.onEscapePressed: root.close()
+      Timer {
+        id: focusRecovery
+        interval: 75
+        onTriggered: {
+          if (root.opened && pageTabs.itemAt(0)) pageTabs.itemAt(0).forceActiveFocus()
+        }
+      }
       Keys.onPressed: function(event) {
         if (event.modifiers === Qt.ControlModifier && event.key >= Qt.Key_1 && event.key <= Qt.Key_4) {
           root.setPage(["home", "insights", "history", "settings"][event.key - Qt.Key_1])
@@ -406,9 +413,7 @@ Panel {
           function onRequestFinished(command, success) {
             if (success && ["timer.start", "timer.pause", "timer.resume", "timer.finish",
                             "timer.discard", "timer.start_break", "timer.skip_break"].indexOf(command) !== -1) {
-              Qt.callLater(function() {
-                if (root.opened && pageTabs.itemAt(0)) pageTabs.itemAt(0).forceActiveFocus()
-              })
+              focusRecovery.restart()
             }
             if (command !== "activities.create" || root.pendingNewActivityName === "") return
             if (success) {
