@@ -123,7 +123,7 @@ Column {
     }
 
     ActionText {
-      visible: root.service !== null && root.service.historyFilterId !== ""
+      visible: !!root.service && root.service.historyFilterId !== ""
       text: "Clear"
       onActivated: {
         root.service.historyFilterId = ""
@@ -216,13 +216,13 @@ Column {
 
     ActionText {
       text: "Apply range"
-      enabled: root.service !== null && !root.service.busy
+      enabled: !!root.service && !root.service.busy
       onActivated: root.applyRange()
     }
 
     ActionText {
       text: "All dates"
-      enabled: root.service !== null && !root.service.busy
+      enabled: !!root.service && !root.service.busy
       onActivated: {
         root.rangeError = ""
         root.service.historyStartDay = ""
@@ -243,7 +243,7 @@ Column {
   }
 
   Text {
-    visible: root.service !== null && root.service.historySessions.length === 0
+    visible: !!root.service && root.service.historySessions.length === 0
     text: "No saved sessions in this view."
     color: Commons.Color.foreground
     opacity: 0.65
@@ -326,13 +326,13 @@ Column {
   }
 
   Row {
-    visible: root.service !== null && (root.service.historyCursor !== null
+    visible: !!root.service && (root.service.historyCursor !== null
                               || root.service.historyBackStack.length > 0)
     spacing: Style.space(14)
 
     ActionText {
       text: "‹ Newer"
-      enabled: root.service !== null && !root.service.busy && root.service.historyBackStack.length > 0
+      enabled: !!root.service && !root.service.busy && root.service.historyBackStack.length > 0
       onActivated: root.service.newerHistory()
     }
 
@@ -346,7 +346,7 @@ Column {
 
     ActionText {
       text: "Older ›"
-      enabled: root.service !== null && !root.service.busy && root.service.historyCursor !== null
+      enabled: !!root.service && !root.service.busy && root.service.historyCursor !== null
       onActivated: root.service.olderHistory()
     }
   }
@@ -441,7 +441,7 @@ Column {
           required property string modelData
           text: modelData
           color: modelData === "Delete" ? Commons.Color.foreground : Commons.Color.accent
-          enabled: root.service !== null && !root.service.busy
+          enabled: !!root.service && !root.service.busy
           onActivated: {
             if (modelData === "Save correction") root.edit()
             else if (modelData === "Delete") root.confirmDelete = true

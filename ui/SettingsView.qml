@@ -145,7 +145,7 @@ Column {
   ActionText {
     text: "Save settings"
     font.weight: Font.DemiBold
-    enabled: root.service !== null && !root.service.busy
+    enabled: !!root.service && !root.service.busy
     onActivated: root.save()
   }
 
@@ -178,7 +178,7 @@ Column {
         required property string modelData
         text: modelData
         font.weight: Font.DemiBold
-        enabled: root.service !== null && !root.service.busy
+        enabled: !!root.service && !root.service.busy
         onActivated: root.service.submit(modelData === "Create backup"
           ? "backup.create" : "backup.export_json", {})
       }
@@ -186,7 +186,7 @@ Column {
   }
 
   Text {
-    visible: root.service !== null && root.service.backupMessage !== ""
+    visible: !!root.service && root.service.backupMessage !== ""
     width: root.width
     wrapMode: Text.WordWrap
     text: root.service ? root.service.backupMessage : ""
@@ -205,7 +205,7 @@ Column {
   }
 
   Text {
-    visible: root.service !== null && root.service.backups.length === 0
+    visible: !!root.service && root.service.backups.length === 0
     text: "No backups created yet."
     color: Commons.Color.foreground
     opacity: 0.6
@@ -238,7 +238,7 @@ Column {
       ActionText {
         id: restoreText
         text: root.confirmingRestoreName === modelData.name ? "Confirm restore" : "Restore"
-        enabled: root.service !== null && !root.service.busy && root.service.phase === "idle"
+        enabled: !!root.service && !root.service.busy && root.service.phase === "idle"
         onActivated: {
           if (root.confirmingRestoreName === modelData.name) {
             root.service.submit("backup.restore", { name: modelData.name })

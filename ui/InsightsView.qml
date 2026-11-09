@@ -137,7 +137,7 @@ Column {
 
     ActionText {
       text: "View selected history"
-      enabled: root.service !== null && !root.service.busy
+      enabled: !!root.service && !root.service.busy
       onActivated: root.openSelectedHistory()
     }
   }
