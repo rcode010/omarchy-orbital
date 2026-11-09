@@ -177,6 +177,7 @@ Column {
         width: parent.width
         text: root.service ? root.service.historyStartDay : ""
         maximumLength: 10
+        Accessible.name: "History range start date"
         color: Commons.Color.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.body
@@ -201,6 +202,7 @@ Column {
         width: parent.width
         text: root.service ? root.service.historyEndDay : ""
         maximumLength: 10
+        Accessible.name: "History range end date"
         color: Commons.Color.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.body
@@ -382,6 +384,7 @@ Column {
       font.family: Style.font.family
       font.pixelSize: Style.font.body
       maximumLength: 19
+      Accessible.name: "Corrected local start date and time"
     }
 
     Text {
@@ -396,6 +399,7 @@ Column {
       id: secondsInput
       width: root.width
       validator: IntValidator { bottom: 1; top: 86400 }
+      Accessible.name: "Corrected active seconds"
       color: Commons.Color.foreground
       font.family: Style.font.family
       font.pixelSize: Style.font.body
@@ -405,6 +409,7 @@ Column {
       id: noteInput
       width: root.width
       maximumLength: 500
+      Accessible.name: "Corrected session note"
       color: Commons.Color.foreground
       font.family: Style.font.family
       font.pixelSize: Style.font.body

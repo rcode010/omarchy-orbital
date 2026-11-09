@@ -62,6 +62,7 @@ Column {
         font.family: Style.font.family
         font.pixelSize: Style.font.body
         maximumLength: 80
+        Accessible.name: "Activity name"
       }
     }
 
@@ -83,6 +84,7 @@ Column {
         font.family: Style.font.family
         font.pixelSize: Style.font.body
         maximumLength: 8
+        Accessible.name: "Activity icon"
       }
     }
   }

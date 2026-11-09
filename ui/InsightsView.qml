@@ -170,6 +170,8 @@ Column {
           width: (chart.width - (root.report.trend.length - 1) * Style.space(2)) / root.report.trend.length
           height: chart.height
           activeFocusOnTab: true
+          Accessible.role: Accessible.Button
+          Accessible.name: modelData.label + ", " + root.service.formatDuration(modelData.active_ms)
           Keys.onReturnPressed: root.hoveredIndex = index
           Keys.onSpacePressed: root.hoveredIndex = index
 

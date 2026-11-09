@@ -124,6 +124,7 @@ Column {
       font.family: Style.font.family
       font.pixelSize: Style.font.body
       maximumLength: 16
+      Accessible.name: "Local start date and time"
     }
   }
 
@@ -147,6 +148,7 @@ Column {
         verticalAlignment: TextInput.AlignVCenter
         text: "30"
         validator: IntValidator { bottom: 1; top: 1440 }
+        Accessible.name: "Duration in minutes"
         color: Commons.Color.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.body
@@ -189,6 +191,7 @@ Column {
       font.family: Style.font.family
       font.pixelSize: Style.font.body
       maximumLength: 16
+      Accessible.name: "Optional local end date and time"
     }
   }
 
@@ -210,6 +213,7 @@ Column {
       font.family: Style.font.family
       font.pixelSize: Style.font.body
       maximumLength: 500
+      Accessible.name: "Optional note"
     }
 
     Text {

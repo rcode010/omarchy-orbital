@@ -102,6 +102,7 @@ Column {
           verticalAlignment: TextInput.AlignVCenter
           text: root.draft[modelData.key] === undefined ? "" : String(root.draft[modelData.key])
           validator: IntValidator { bottom: modelData.min; top: modelData.max }
+          Accessible.name: modelData.label
           color: Commons.Color.foreground
           font.family: Style.font.family
           font.pixelSize: Style.font.body

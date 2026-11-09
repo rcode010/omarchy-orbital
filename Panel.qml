@@ -304,6 +304,8 @@ Panel {
             height: Style.space(42)
             radius: Style.space(9)
             activeFocusOnTab: true
+            Accessible.role: Accessible.Button
+            Accessible.name: modelData.name + (modelData.archived_at ? ", archived, manage" : ", select")
             Keys.onReturnPressed: activate()
             Keys.onSpacePressed: activate()
 
@@ -433,6 +435,7 @@ Panel {
               font.family: Style.font.family
               font.pixelSize: Style.font.body
               maximumLength: 80
+              Accessible.name: "New activity name"
               Keys.onReturnPressed: addButton.createActivity()
             }
 
@@ -455,6 +458,8 @@ Panel {
             radius: Style.space(8)
             color: Commons.Color.accent
             activeFocusOnTab: true
+            Accessible.role: Accessible.Button
+            Accessible.name: "Add activity"
             enabled: root.service && !root.service.busy
             border.color: activeFocus ? root.foreground : "transparent"
             border.width: activeFocus ? 2 : 0

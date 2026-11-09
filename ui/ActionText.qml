@@ -12,6 +12,8 @@ Text {
   font.underline: activeFocus
   opacity: enabled ? 1 : 0.45
   activeFocusOnTab: enabled
+  Accessible.role: Accessible.Button
+  Accessible.name: text
 
   Keys.onReturnPressed: function(event) {
     activated()
