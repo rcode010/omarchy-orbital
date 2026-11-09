@@ -99,6 +99,13 @@ QtObject {
       completionTick.interval = Math.max(1000, plannedSeconds * 1000 - activeMs)
       completionTick.start()
     }
+    pauseIfIdle()
+  }
+
+  function pauseIfIdle() {
+    if (settings.pause_on_idle && idleMonitor.isIdle
+        && (phase === "running" || phase === "break_running"))
+      submit("timer.pause", { cause: "idle" })
   }
 
   function updateDisplay() {
@@ -310,10 +317,7 @@ QtObject {
     enabled: root.settings.pause_on_idle
     timeout: root.settings.idle_minutes * 60
     respectInhibitors: true
-    onIsIdleChanged: {
-      if (isIdle && (root.phase === "running" || root.phase === "break_running"))
-        root.submit("timer.pause", { cause: "idle" })
-    }
+    onIsIdleChanged: root.pauseIfIdle()
   }
 
   property Timer displayTick: Timer {
