@@ -76,18 +76,8 @@ Panel {
       anchors.fill: parent
       focus: true
       Keys.onEscapePressed: root.close()
-      Timer {
-        id: focusRecovery
-        interval: 75
-        onTriggered: {
-          if (root.opened && pageTabs.itemAt(0)) pageTabs.itemAt(0).forceActiveFocus()
-        }
-      }
       Keys.onPressed: function(event) {
-        if (event.modifiers === Qt.ControlModifier && event.key >= Qt.Key_1 && event.key <= Qt.Key_4) {
-          root.setPage(["home", "insights", "history", "settings"][event.key - Qt.Key_1])
-          event.accepted = true
-        } else if (event.modifiers === Qt.NoModifier && event.key === Qt.Key_Space) {
+        if (event.modifiers === Qt.NoModifier && event.key === Qt.Key_Space) {
           root.primaryAction()
           event.accepted = true
         } else if (event.modifiers === Qt.NoModifier && event.key === Qt.Key_F
@@ -95,6 +85,31 @@ Panel {
           root.perform("Finish")
           event.accepted = true
         }
+      }
+
+      Shortcut {
+        sequence: "Ctrl+1"
+        enabled: root.opened
+        context: Qt.WindowShortcut
+        onActivated: root.setPage("home")
+      }
+      Shortcut {
+        sequence: "Ctrl+2"
+        enabled: root.opened
+        context: Qt.WindowShortcut
+        onActivated: root.setPage("insights")
+      }
+      Shortcut {
+        sequence: "Ctrl+3"
+        enabled: root.opened
+        context: Qt.WindowShortcut
+        onActivated: root.setPage("history")
+      }
+      Shortcut {
+        sequence: "Ctrl+4"
+        enabled: root.opened
+        context: Qt.WindowShortcut
+        onActivated: root.setPage("settings")
       }
 
       Flickable {
@@ -122,7 +137,6 @@ Panel {
           spacing: Style.space(16)
 
           Repeater {
-            id: pageTabs
             model: ["Home", "Insights", "History", "Settings"]
 
             OrbitalUi.ActionText {
@@ -411,10 +425,6 @@ Panel {
         Connections {
           target: root.service
           function onRequestFinished(command, success) {
-            if (success && ["timer.start", "timer.pause", "timer.resume", "timer.finish",
-                            "timer.discard", "timer.start_break", "timer.skip_break"].indexOf(command) !== -1) {
-              focusRecovery.restart()
-            }
             if (command !== "activities.create" || root.pendingNewActivityName === "") return
             if (success) {
               if (activityInput.text.trim() === root.pendingNewActivityName) activityInput.text = ""
