@@ -48,6 +48,9 @@ Panel {
     else if (action === "Start Break") service.submit("timer.start_break", {})
     else if (action === "Skip Break") service.submit("timer.skip_break", {})
     else service.submit("timer.finish", {})
+    Qt.callLater(function() {
+      if (root.opened) keyCatcher.forceActiveFocus()
+    })
   }
 
   function primaryAction() {
