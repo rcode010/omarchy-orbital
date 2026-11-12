@@ -8,6 +8,20 @@ Repository: https://github.com/rcode010/omarchy-orbital
 
 This repository is under active development. The current build provides activity creation, selection, renaming, color/icon edits, archiving, restoring, and safe deletion of unused activities. It also provides a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, short/long breaks, durable SQLite sessions, saved Today totals by activity, an Add Missed Time form, paged History with correction and deletion, and Today/Day/Week/Month/Year Insights. Timer, notification, and idle preferences, plus local backup and restore controls, are available in Settings. Full accessibility and live Omarchy verification are still in progress. Do not treat this build as a stable 1.0 release.
 
+## Install
+
+This is an early 0.1.0 build. The remaining live checks are recorded in the release verification report below.
+
+```sh
+omarchy plugin add https://github.com/rcode010/omarchy-orbital --enable
+```
+
+To remove Orbital while keeping its saved activity data:
+
+```sh
+omarchy plugin remove io.github.rcode010.omarchy-orbital --yes
+```
+
 ## Requirements
 
 - Omarchy 4.x with the built-in Quickshell bar. Development currently targets Omarchy 4.0.6 and Quickshell 0.3.2.
@@ -61,4 +75,6 @@ Press Escape to close the panel. Ctrl+1, Ctrl+2, Ctrl+3, and Ctrl+4 open Home, I
 
 ## Development status
 
-The committed checkout has passed automated storage, timer display, manifest, and QML parsing checks. Live testing on 2026-11-09 covered page rendering, keyboard shortcuts and scrolling, natural Focus and break completion, notifications, backup and restore, conservative restart recovery, removal and data survival, panel opening on two physical displays, and short shell performance samples. A privacy-safe screenshot is included above. Idle pause, screen reader inspection, and pointer interaction on both displays remain open. No stable public release has been published.
+The committed checkout has passed automated storage, timer display, manifest, and QML parsing checks. Live testing on 2026-11-09 covered page rendering, keyboard shortcuts and scrolling, natural Focus and break completion, notifications, backup and restore, conservative restart recovery, removal and data survival, panel opening on two physical displays, and short shell performance samples. A privacy-safe screenshot is included above. Idle pause, screen reader inspection, and pointer interaction on both displays remain open. See the [verification report](docs/release-report-2026-11-09.md) for exact results and limits. No stable public release has been published.
+
+Use the [stable release verification checklist](docs/release-verification.md) to record the remaining live checks before publishing.
