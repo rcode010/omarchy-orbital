@@ -6,14 +6,22 @@ Orbital is a local activity timer for the built-in Omarchy bar. Create recurring
 
 Repository: https://github.com/rcode010/omarchy-orbital
 
+Available on the [Omarchy Plugin Marketplace](https://omarchyplugins.com/plugin.html?id=io.github.rcode010.omarchy-orbital).
+
 This repository is under active development. The current build provides activity creation, selection, renaming, color/icon edits, archiving, restoring, and safe deletion of unused activities. It also provides a shared timer service, pause and resume, natural focus completion, Finish Early or Finish, Discard, short/long breaks, durable SQLite sessions, saved Today totals by activity, an Add Missed Time form, paged History with correction and deletion, and Today/Day/Week/Month/Year Insights. Timer, notification, and idle preferences, plus local backup and restore controls, are available in Settings. Full accessibility and live Omarchy verification are still in progress. Do not treat this build as a stable 1.0 release.
 
 ## Install
 
-This is an early 0.1.1 build. The remaining live checks are recorded in the release verification report below.
+Version 0.1.1 is published on the marketplace as an early development release. The remaining live checks are recorded in the [release verification report](docs/release-report-2026-11-09.md).
 
 ```sh
 omarchy plugin add https://github.com/rcode010/omarchy-orbital --enable
+```
+
+To update an installed copy:
+
+```sh
+omarchy plugin update io.github.rcode010.omarchy-orbital --yes
 ```
 
 To remove Orbital while keeping its saved activity data:
@@ -79,6 +87,8 @@ Press Escape to close the panel. Ctrl+1, Ctrl+2, Ctrl+3, and Ctrl+4 open Home, I
 
 ## Development status
 
-The committed checkout has passed automated storage, timer display, manifest, and QML parsing checks. Live testing on 2026-11-09 covered page rendering, keyboard shortcuts and scrolling, natural Focus and break completion, notifications, backup and restore, conservative restart recovery, removal and data survival, panel opening on two physical displays, and short shell performance samples. A privacy-safe screenshot is included above. Idle pause, screen reader inspection, and pointer interaction on both displays remain open. See the [verification report](docs/release-report-2026-11-09.md) for exact results and limits. No stable public release has been published.
+Orbital 0.1.1 was [published and verified on the marketplace](https://github.com/omacom/omarchy-plugin-marketplace/issues/14797) on 2026-11-14 at commit `53ece7d1445358c0b6f17caba1944413b52606d0`. Marketplace verification applies to that exact snapshot and is not a security audit. Install and update commands fetch upstream HEAD, which can differ from the verified snapshot.
 
-Use the [stable release verification checklist](docs/release-verification.md) to record the remaining live checks before publishing.
+The committed checkout has passed automated storage, timer display, manifest, and QML parsing checks. Live testing on 2026-11-09 covered page rendering, keyboard shortcuts and scrolling, natural Focus and break completion, notifications, backup and restore, conservative restart recovery, removal and data survival, panel opening on two physical displays, and short shell performance samples. A privacy-safe screenshot is included above. Idle pause, screen reader inspection, and pointer interaction on both displays remain open. See the [verification report](docs/release-report-2026-11-09.md) for exact results and limits.
+
+Use the [stable release verification checklist](docs/release-verification.md) to record the remaining live checks before a stable 1.0 release.

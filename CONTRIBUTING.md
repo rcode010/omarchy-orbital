@@ -21,6 +21,12 @@ Restart the shell before the final live QML check. A plugin update can report su
 
 Use local Git commits with concise Conventional Commit subjects. Do not add source-code comments, generated attribution, personal databases, or screenshots that are not from the running plugin. Do not push, publish, tag a release, or change remotes as part of routine development.
 
-## Release work still required
+## Marketplace updates
+
+Orbital 0.1.1 is [listed on the Omarchy Plugin Marketplace](https://omarchyplugins.com/plugin.html?id=io.github.rcode010.omarchy-orbital). The initial publication records commit `53ece7d1445358c0b6f17caba1944413b52606d0`; verification applies only to the recorded snapshot.
+
+After an authorized upstream update, follow the marketplace's [verification and update guide](https://github.com/omacom/omarchy-plugin-marketplace/blob/main/VERIFICATION.md) and request publication of the newer commit through its [verification form](https://github.com/omacom/omarchy-plugin-marketplace/issues/new?template=verify-plugin.yml). Include the full target commit SHA. The existing marketplace snapshot stays unchanged until the newer commit completes the marketplace review and publication process.
+
+## Stable release work still required
 
 The maintainer selected MIT for Orbital. The privacy-safe screenshot, removal and data-survival checks, short shell performance samples, natural Focus and break cycle, notifications, backup and restore, and keyboard navigation are recorded in the [release report](docs/release-report-2026-11-09.md). A stable release still needs the unresolved idle, screen-reader, and physical multi-monitor pointer checks in that report. Keep the [verification checklist](docs/release-verification.md) authoritative until those checks are complete.
