@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.rcode010.omarchy-orbital",
   "name": "Orbital",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "rcode010",
   "description": "Local activity timing and insights for Omarchy",
   "kinds": ["service", "bar-widget"],

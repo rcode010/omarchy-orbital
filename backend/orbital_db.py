@@ -1055,8 +1055,10 @@ def run(request, path=None):
 
 
 def main():
-    raw = sys.argv[1].encode() if len(sys.argv) == 2 else sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
     try:
+        if len(sys.argv) != 1:
+            raise RequestError("invalid_request", "Send requests through standard input only")
+        raw = sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1)
         if len(raw) > MAX_REQUEST_BYTES:
             raise RequestError("request_too_large", "Request exceeds size limit")
         try:

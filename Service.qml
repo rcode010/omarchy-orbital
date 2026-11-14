@@ -132,7 +132,8 @@ QtObject {
     pending = pending.slice(1)
     busy = true
     helperTimedOut = false
-    helper.command = ["python3", helperPath, JSON.stringify(activeRequest)]
+    helper.command = ["python3", helperPath]
+    helper.stdinEnabled = true
     helper.running = true
     helperTimeout.restart()
   }
@@ -294,6 +295,10 @@ QtObject {
   }
 
   property Process helper: Process {
+    onStarted: {
+      write(JSON.stringify(root.activeRequest))
+      stdinEnabled = false
+    }
     stdout: StdioCollector {
       id: helperOutput
       waitForEnd: true

@@ -212,14 +212,15 @@ class ActivityStorageTests(unittest.TestCase):
             self.call("activities.list")
         self.assertEqual(error.exception.code, "unsafe_path")
 
-    def test_argument_array_protocol_creates_activity(self):
+    def test_stdin_protocol_creates_activity(self):
         env = {**os.environ, "XDG_DATA_HOME": self.temp.name}
         script = ROOT / "backend" / "orbital_db.py"
         request = json.dumps({"command": "activities.create", "name": "Reading & writing $(safe)"})
-        result = subprocess.run([sys.executable, str(script), request], capture_output=True, env=env, check=True)
-        self.assertTrue(json.loads(result.stdout)["ok"])
-        listed = subprocess.run([sys.executable, str(script), '{"command":"activities.list"}'],
+        result = subprocess.run([sys.executable, str(script)], input=request, text=True,
                                 capture_output=True, env=env, check=True)
+        self.assertTrue(json.loads(result.stdout)["ok"])
+        listed = subprocess.run([sys.executable, str(script)], input='{"command":"activities.list"}',
+                                text=True, capture_output=True, env=env, check=True)
         self.assertEqual(json.loads(listed.stdout)["result"]["activities"][0]["name"],
                          "Reading & writing $(safe)")
 
@@ -230,16 +231,55 @@ class ActivityStorageTests(unittest.TestCase):
 
         def create(index):
             request = json.dumps({"command": "activities.create", "name": f"Activity {index}"})
-            completed = subprocess.run([sys.executable, str(script), request],
-                                       capture_output=True, env=env, check=True)
+            completed = subprocess.run([sys.executable, str(script)], input=request,
+                                       text=True, capture_output=True, env=env, check=True)
             return json.loads(completed.stdout)
 
         with ThreadPoolExecutor(max_workers=8) as pool:
             results = list(pool.map(create, range(8)))
         self.assertTrue(all(result["ok"] for result in results), results)
-        listed = subprocess.run([sys.executable, str(script), '{"command":"activities.list"}'],
-                                capture_output=True, env=env, check=True)
+        listed = subprocess.run([sys.executable, str(script)], input='{"command":"activities.list"}',
+                                text=True, capture_output=True, env=env, check=True)
         self.assertEqual(len(json.loads(listed.stdout)["result"]["activities"]), 8)
+
+    def test_cli_rejects_request_arguments(self):
+        env = {**os.environ, "XDG_DATA_HOME": self.temp.name}
+        script = ROOT / "backend" / "orbital_db.py"
+        request = '{"command":"activities.create","name":"Private activity"}'
+        for arguments in ([request], [request, "extra"]):
+            result = subprocess.run([sys.executable, str(script), *arguments],
+                                    input=request, text=True, capture_output=True, env=env, check=True)
+            self.assertEqual(json.loads(result.stdout)["error"]["code"], "invalid_request")
+            self.assertNotIn("Private activity", result.stdout + result.stderr)
+        self.assertFalse((Path(self.temp.name) / orbital_db.PLUGIN_ID).exists())
+
+    def test_stdin_manual_entry_and_history_correction_keep_private_note(self):
+        env = {**os.environ, "XDG_DATA_HOME": self.temp.name}
+        script = ROOT / "backend" / "orbital_db.py"
+
+        def call(command, **fields):
+            with subprocess.Popen([sys.executable, str(script)], stdin=subprocess.PIPE,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env) as process:
+                output, errors = process.communicate(json.dumps({"command": command, **fields}).encode(),
+                                                     timeout=10)
+                self.assertEqual(process.returncode, 0)
+                self.assertEqual(errors, b"")
+            response = json.loads(output)
+            self.assertTrue(response["ok"], response)
+            return response["result"]
+
+        activity_id = call("activities.create", name="Private activity")["activity_id"]
+        note = 'Private: موعد 📖\n"quoted" & $(literal) ' + "x" * 400
+        start = "2026-01-02T12:00:00.000+00:00"
+        session_id = call("sessions.add_manual", activity_id=activity_id, started_at=start,
+                          active_seconds=120, note=note)["session_id"]
+        call("sessions.edit", session_id=session_id, activity_id=activity_id,
+             started_at=start, active_seconds=180, note=note)
+        sessions = call("sessions.list")["sessions"]
+        self.assertEqual(len(sessions), 1)
+        self.assertEqual(sessions[0]["note"], note)
+        self.assertEqual(sessions[0]["started_at"], start)
+        self.assertEqual(sessions[0]["active_seconds"], 180)
 
     def test_day_summary_splits_work_and_excludes_pause(self):
         self.call("activities.create", name="Thesis")

@@ -10,7 +10,7 @@ This repository is under active development. The current build provides activity
 
 ## Install
 
-This is an early 0.1.0 build. The remaining live checks are recorded in the release verification report below.
+This is an early 0.1.1 build. The remaining live checks are recorded in the release verification report below.
 
 ```sh
 omarchy plugin add https://github.com/rcode010/omarchy-orbital --enable
@@ -30,6 +30,10 @@ omarchy plugin remove io.github.rcode010.omarchy-orbital --yes
 The plugin ID is `io.github.rcode010.omarchy-orbital`. Its service owns the timer and is shared by bar widgets on all monitors. The panel closes without stopping the service. The helper runs only for user actions and a checkpoint every 60 seconds while tracking; the display tick does not write to SQLite.
 
 Database requests are serialized. If a helper call exceeds 30 seconds, the panel stops it, clears queued actions, and shows a **Refresh state** control. Refresh before repeating a timed-out action because the database may have completed the write before the helper stopped.
+
+Requests reach the Python helper through a bounded standard-input pipe. Notes, session timestamps, activity names, and other request fields are never passed as helper command-line arguments. The helper accepts standard input only.
+
+Version 0.1.1 fixes the request-data exposure reported during marketplace review. See the [fix and verification record](docs/review-fix-2026-11-14.md).
 
 Activity names are limited to 80 characters, and the current data protocol caps a library at 500 activities so UI responses remain bounded.
 
